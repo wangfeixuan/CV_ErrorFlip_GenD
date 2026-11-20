@@ -1,0 +1,184 @@
+# Error-Flip-Aware GenD Adapter
+
+This project is a Track 2 study of robust short-video deepfake detection. It
+starts from the published GenD CLIP ViT-L/14 detector, freezes its vision
+encoder, and trains a small residual adapter on the 1024-dimensional frame
+features.
+
+The central experiment compares two training objectives under identical
+compute and architecture:
+
+- `uniform`: average the video-level loss over all six two-frame blur masks.
+- `flip_weighted`: retain all six masks but up-weight masks on which the
+  original GenD prediction is wrong while its clean prediction is correct.
+- `flip_hard`: an ablation that backpropagates through the currently hardest
+  eligible mask.
+
+The goal is not to claim that training harder examples necessarily improves
+accuracy. The goal is to measure whether the adapter recovers GenD errors
+caused by sparse local degradation without harming clean videos.
+
+## Current results
+
+The fixed Celeb-DF v2 split contains 362 training, 78 validation, and 78 test
+videos. All three model seeds use the same split manifest. Mean accuracy over
+the six two-of-four degradation masks is:
+
+| Condition | GenD | Uniform adapter | Error-weighted | Hard-mask |
+|---|---:|---:|---:|---:|
+| Blur k9, trained | 83.12% | **90.38%** | 90.31% | 89.67% |
+| JPEG q30, unseen | 88.03% | 92.59% | **92.66%** | 92.24% |
+| Resize 25%, unseen | 88.46% | **91.31%** | **91.31%** | 91.10% |
+
+Uniform local-mask adaptation improves trained-blur accuracy by 7.26
+percentage points. Its source-group bootstrap 95% interval is [1.39, 13.96].
+Error weighting and hard-mask selection do not provide a stable additional
+gain, which is reported as a negative result rather than hidden.
+
+The final course report is [`reports/CV_ErrorFlip_GenD_Report.pdf`](reports/CV_ErrorFlip_GenD_Report.pdf).
+Aggregate tables and figures are under [`results/`](results/).
+
+## Data
+
+The primary face banks in this workspace are:
+
+- `selected_faces.zip`
+- `selected_faces_blur_k9.zip`
+
+They contain the same 2,072 paths, representing 518 Celeb-DF v2 videos and
+four aligned 256x256 face crops per video.
+
+Training and evaluation use video-level source groups. All frames from a
+video and the corresponding original/blur pair remain in the same split.
+The source-group key also keeps all synthesized videos generated from the
+same identity pair together. It does not prove complete identity isolation,
+which must remain an explicit limitation in the report.
+
+## Server setup
+
+Use only the dedicated directory:
+
+```text
+/root/autodl-tmp/CV_ErrorFlip_GenD
+```
+
+Do not write to or clean the VADE directory. The project expects this layout:
+
+```text
+CV_ErrorFlip_GenD/
+├── code/
+├── data/
+│   ├── model.safetensors
+│   ├── selected_faces.zip
+│   └── selected_faces_blur_k9.zip
+├── artifacts/
+└── runs/
+```
+
+Install the small set of Python dependencies:
+
+```bash
+cd /root/autodl-tmp/CV_ErrorFlip_GenD/code
+python -m pip install -r requirements.txt
+```
+
+The manuscript should cite the original GenD repository:
+<https://github.com/yermandy/GenD>.
+
+## Pipeline
+
+### 1. Extract frozen GenD features
+
+```bash
+python -m src.extract_features \
+  --original-zip ../data/selected_faces.zip \
+  --blur-zip ../data/selected_faces_blur_k9.zip \
+  --model ../data/model.safetensors \
+  --output ../artifacts/features_blur_k9.npz \
+  --device cuda \
+  --batch-size 16
+```
+
+The cache contains normalized original features, normalized blur features,
+the original GenD per-frame logits, and the exact publication classification
+head. Later adapter training does not need to rerun the CLIP encoder.
+
+### 2. Train the two controlled variants
+
+```bash
+python -m src.train \
+  --features ../artifacts/features_blur_k9.npz \
+  --method uniform \
+  --seed 2026 \
+  --output-dir ../runs/uniform_seed2026 \
+  --device cuda
+```
+
+```bash
+python -m src.train \
+  --features ../artifacts/features_blur_k9.npz \
+  --method flip_hard \
+  --seed 2026 \
+  --output-dir ../runs/flip_hard_seed2026 \
+  --device cuda
+```
+
+Run three seeds only after the account owner confirms that the GPU is free.
+The training script never evaluates or tunes on the test split.
+
+### 3. Evaluate each frozen checkpoint
+
+```bash
+python -m src.evaluate \
+  --features ../artifacts/features_blur_k9.npz \
+  --checkpoint ../runs/flip_hard_seed2026/best.pt \
+  --split test \
+  --output ../runs/flip_hard_seed2026/eval_test.json
+```
+
+Evaluation covers all 16 original/blur masks, but treats the 16 masks as
+repeated measurements of the same video. The output separately reports:
+
+- clean performance;
+- mean and worst predictive performance over all 16 masks;
+- the six-mask, exactly-two-blur condition used in training;
+- mask-event recovery and harm counts;
+- video-level flip rate and position-score variance.
+
+Do not multiply the 518 videos by 16 as if they were independent samples.
+
+## Tests
+
+```bash
+python -m pytest -q
+python -m src.smoke_test
+```
+
+The smoke test creates synthetic GenD features and checks both training
+objectives, checkpoint loading, and evaluation without downloading a model or
+using a GPU.
+
+## Scientific boundaries
+
+- This is an extension of GenD, not a new foundation model.
+- The existing Celeb-DF videos were used during exploratory analysis and are
+  not a fully blind external test.
+- The adapter can only use information retained in the frozen features.
+- A negative result is a valid result. The report must distinguish total
+  accuracy from error recovery and newly introduced errors.
+- The two-frame training condition can always be extended to all masks only
+  after the initial comparison is complete.
+
+## Repository contents
+
+This repository includes source code, configuration, tests, the final report,
+aggregate metrics, bootstrap results, and figures. The following large or
+restricted artifacts are intentionally excluded:
+
+- the GenD `model.safetensors` weights;
+- Celeb-DF and UADFV face archives;
+- cached feature tensors;
+- individual checkpoint binaries and per-video prediction dumps.
+
+The model can be downloaded from the official GenD project, while datasets
+must be obtained under their original access terms.
