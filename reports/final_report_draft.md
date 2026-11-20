@@ -257,6 +257,19 @@ blur-only, reaching 88.89%, 91.03% and 90.46% on blur, JPEG and resize.
 With this data and one small adapter, balancing the objectives yields a
 conservative compromise rather than complementary robustness.
 
+### Static specialist ensemble
+
+We also combined the existing Clean, Blur, JPEG, and Resize experts without
+retraining. A validation-only grid varied the Blur share from 0% to 100% and
+the Clean share from 0% to 30%. The selected weights were Clean 0%, Blur 20%,
+JPEG 40%, and Resize 40%, frozen before test evaluation.
+
+The selected ensemble reaches 92.31% clean, 89.96% blur, 92.52% JPEG, and
+91.45% resize accuracy. It does not improve the trained blur or JPEG
+condition over Blur-only, and the resize gain is only 0.14 points. Thus the
+validation optimum does not provide a stable test-time advantage. Static
+weight tuning does not resolve the specialist-versus-mixture trade-off.
+
 Paired source-group intervals confirm the direction. The one-type mixed arm
 is -1.50 points versus blur-specific on blur [-3.33, 0.00], -1.57 on JPEG
 [-6.93, 2.70], and -0.85 on resize [-2.32, 0.41]. The all-types arm is -1.85

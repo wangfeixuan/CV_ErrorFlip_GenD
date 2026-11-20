@@ -21,3 +21,4 @@ bash scripts/run_k_sweep.sh
 bash scripts/run_mixed_adapter.sh
 bash scripts/run_mixed_full.sh
 bash scripts/run_single_degradations.sh
+bash scripts/run_ensemble_search.sh

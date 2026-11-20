@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -184,6 +185,11 @@ def build(args: argparse.Namespace) -> Path:
     summary = pd.read_csv(results / "aggregate_all_conditions.summary.csv")
     bootstrap = pd.read_csv(results / "bootstrap_all_conditions.csv")
     k_sweep = pd.read_csv(results / "k_sweep.csv")
+    ensemble = json.loads(
+        (results / "ensemble_weight_search_summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     styles = make_styles()
@@ -665,8 +671,44 @@ def build(args: argparse.Namespace) -> Path:
         styles,
     )
 
+    story.append(Paragraph("5.6 Static specialist ensemble", styles["SubHeading"]))
+    selected_weights = ensemble["selected_weights"]
+    ensemble_test = ensemble["test"]
+    story.append(
+        Paragraph(
+            "We also combined the existing Clean, Blur, JPEG, and Resize experts "
+            "without retraining. A coarse validation sweep varied the Blur share "
+            "from 0% to 100% in 10% steps and the Clean share from 0% to 30%. "
+            f"The selected weights were Clean {100 * selected_weights['clean']:.0f}%, "
+            f"Blur {100 * selected_weights['blur']:.0f}%, JPEG "
+            f"{100 * selected_weights['jpeg']:.0f}%, and Resize "
+            f"{100 * selected_weights['resize']:.0f}%. The weights were fixed "
+            "before test evaluation.",
+            styles["BodyJustified"],
+        )
+    )
+    add_figure(
+        story,
+        figures / "ensemble_weight_curve.png",
+        14.0,
+        "Figure 6. Validation-only sweep of the static specialist ensemble. "
+        "The dashed line marks the selected Blur weight.",
+        styles,
+    )
+    story.append(
+        Paragraph(
+            "On test, the selected ensemble reaches 92.31% clean, 89.96% blur, "
+            "92.52% JPEG, and 91.45% resize accuracy. It does not improve the "
+            "trained blur condition or JPEG over Blur-only, and the resize gain "
+            "is only +0.14 points. The validation optimum therefore does not "
+            "provide a stable test-time advantage. Static weight tuning does not "
+            "resolve the specialist-versus-mixture trade-off.",
+            styles["BodyJustified"],
+        )
+    )
+
     story.append(CondPageBreak(8 * cm))
-    story.append(Paragraph("5.6 Clean performance and stability", styles["SubHeading"]))
+    story.append(Paragraph("5.7 Clean performance and stability", styles["SubHeading"]))
     clean_rows = [["Method", "Clean", "Blur local", "JPEG local", "Resize local"]]
     clean_rows.append(["GenD", "85.90%", "83.12%", "88.03%", "88.46%"])
     for method, label in (
@@ -729,7 +771,7 @@ def build(args: argparse.Namespace) -> Path:
         )
     )
 
-    story.append(Paragraph("5.7 Interpretation of the negative results", styles["SubHeading"]))
+    story.append(Paragraph("5.8 Interpretation of the negative results", styles["SubHeading"]))
     story.append(
         Paragraph(
             "Several properties of hard-mask training may explain its lower "

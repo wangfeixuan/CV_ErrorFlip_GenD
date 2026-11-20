@@ -88,6 +88,14 @@ No specialist dominates its matching condition, which is consistent with the
 small dataset and high overlap between the three deepfake-centric degradation
 objectives. The full mixed arm remains a negative result.
 
+### Static weight tuning
+
+The already-trained Clean, Blur, JPEG, and Resize adapters were combined
+without retraining. A validation-only sweep selected Clean 0%, Blur 20%, JPEG
+40%, and Resize 40%. On test this ensemble reaches 92.31% clean, 89.96% blur,
+92.52% JPEG, and 91.45% resize accuracy. It does not beat Blur-only on the
+trained blur or JPEG conditions; the resize gain is only 0.14 points.
+
 The final course report is [`reports/CV_ErrorFlip_GenD_Report.pdf`](reports/CV_ErrorFlip_GenD_Report.pdf).
 Aggregate tables and figures are under [`results/`](results/).
 
