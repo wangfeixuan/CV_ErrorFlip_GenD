@@ -1,8 +1,14 @@
+import csv
+import io
+import tarfile
+
 import numpy as np
 import torch
+from PIL import Image
 
 from src.adapter import GenDAdapter
-from src.data import assign_group_splits, source_group
+from src.data import assign_group_splits, index_zip, source_group
+from src.import_wilddeepfake import import_shards
 from src.masks import all_masks, masks_with_count
 from src.metrics import binary_metrics
 
@@ -68,3 +74,49 @@ def test_metrics():
     metrics = binary_metrics(labels, probabilities)
     assert metrics["accuracy"] == 1.0
     assert metrics["auc"] == 1.0
+
+
+def test_wilddeepfake_import_fixture(tmp_path):
+    archive_path = tmp_path / "archives" / "real" / "1.tar.gz"
+    archive_path.parent.mkdir(parents=True)
+    with tarfile.open(archive_path, "w:gz") as archive:
+        for frame in range(5):
+            image = Image.new("RGB", (224, 224), (frame, frame, frame))
+            buffer = io.BytesIO()
+            image.save(buffer, format="PNG")
+            payload = buffer.getvalue()
+            info = tarfile.TarInfo(name=f"video_1/{frame:04d}.png")
+            info.size = len(payload)
+            archive.addfile(info, io.BytesIO(payload))
+    manifest = tmp_path / "shards.csv"
+    with manifest.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(
+            handle, fieldnames=["label", "path", "size_bytes"]
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                "label": "real",
+                "path": "deepfake_in_the_wild/real_train/1.tar.gz",
+                "size_bytes": archive_path.stat().st_size,
+            }
+        )
+    output_zip = tmp_path / "faces.zip"
+    output_manifest = tmp_path / "sequences.csv"
+    import_shards(
+        type(
+            "Args",
+            (),
+            {
+                "shard_manifest": str(manifest),
+                "archives_dir": str(tmp_path / "archives"),
+                "output_zip": str(output_zip),
+                "output_manifest": str(output_manifest),
+                "frames_per_sequence": 4,
+            },
+        )()
+    )
+    indexed = index_zip(output_zip)
+    assert len(indexed) == 1
+    assert indexed[0]["label"] == "real"
+    assert indexed[0]["frame_count"] == 4

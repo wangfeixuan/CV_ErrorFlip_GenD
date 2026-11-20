@@ -17,7 +17,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--original-zip", required=True)
     parser.add_argument("--output-zip", required=True)
     parser.add_argument(
-        "--kind", choices=("jpeg_q30", "resize_25"), required=True
+        "--kind", choices=("blur_k9", "jpeg_q30", "resize_25"), required=True
     )
     parser.add_argument("--overwrite", action="store_true")
     return parser.parse_args()
@@ -25,6 +25,15 @@ def parse_args() -> argparse.Namespace:
 
 def degrade(image: Image.Image, kind: str) -> Image.Image:
     image = image.convert("RGB")
+    if kind == "blur_k9":
+        import cv2
+        import numpy as np
+
+        array = np.asarray(image)
+        blurred = cv2.GaussianBlur(
+            array, (9, 9), sigmaX=0, sigmaY=0, borderType=cv2.BORDER_REFLECT_101
+        )
+        return Image.fromarray(blurred, mode="RGB")
     if kind == "jpeg_q30":
         buffer = io.BytesIO()
         image.save(buffer, format="JPEG", quality=30, subsampling=2, optimize=False)
@@ -69,6 +78,7 @@ def main() -> None:
         "kind": args.kind,
         "images": count,
         "protocol": {
+            "blur_k9": "OpenCV GaussianBlur 9x9, sigma=0, BORDER_REFLECT_101",
             "jpeg_q30": "Pillow JPEG quality=30, subsampling=2, then decoded and stored as PNG",
             "resize_25": "Pillow bicubic resize to floor(width/4) x floor(height/4), stored as PNG",
         }[args.kind],

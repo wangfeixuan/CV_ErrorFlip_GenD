@@ -19,7 +19,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--features", required=True)
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument(
-        "--split", choices=("train", "validation", "test"), required=True
+        "--split",
+        choices=("train", "validation", "test", "external"),
+        required=True,
     )
     parser.add_argument("--output", required=True)
     parser.add_argument("--device", default="auto")
@@ -111,15 +113,18 @@ def evaluate(args: argparse.Namespace) -> dict:
     device = choose_device(args.device)
     data = load_npz(args.features)
     checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
-    split_by_video = checkpoint["split_by_video"]
-    selected_index = np.asarray(
-        [
-            index
-            for index, video_id in enumerate(data["video_ids"])
-            if split_by_video[str(video_id)] == args.split
-        ],
-        dtype=np.int64,
-    )
+    if args.split == "external":
+        selected_index = np.arange(len(data["video_ids"]), dtype=np.int64)
+    else:
+        split_by_video = checkpoint["split_by_video"]
+        selected_index = np.asarray(
+            [
+                index
+                for index, video_id in enumerate(data["video_ids"])
+                if split_by_video[str(video_id)] == args.split
+            ],
+            dtype=np.int64,
+        )
     if not len(selected_index):
         raise ValueError(f"No videos found for split={args.split}")
 

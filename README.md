@@ -256,3 +256,21 @@ restricted artifacts are intentionally excluded:
 
 The model can be downloaded from the official GenD project, while datasets
 must be obtained under their original access terms.
+
+## WildDeepfake migration
+
+The code also supports a capped WildDeepfake training subset:
+
+```bash
+bash scripts/download_wilddeepfake_subset.sh
+bash scripts/run_wilddeepfake_pipeline.sh
+bash scripts/run_wilddeepfake_experiments.sh
+```
+
+The selected manifest contains 142 real and 128 fake training shards,
+15.998 GiB compressed total. Four frames are retained per face sequence.
+Celeb-DF v2 is evaluated as `--split external` and never enters Adapter
+training or validation.
+
+WildDeepfake requires its own research-use agreement. See
+[`docs/WILD_DEEPFAKE_MIGRATION.md`](docs/WILD_DEEPFAKE_MIGRATION.md).

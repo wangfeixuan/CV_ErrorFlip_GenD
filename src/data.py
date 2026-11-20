@@ -9,7 +9,8 @@ from typing import Iterable
 from zipfile import ZipFile
 
 FRAME_RE = re.compile(
-    r"^CDFv2/(?P<label>real|fake)/frames/(?P<video_id>[^/]+)/(?P<frame>\d+\.png)$"
+    r"^(?P<dataset>[^/]+)/(?P<label>real|fake)/frames/"
+    r"(?P<video_id>[^/]+)/(?P<frame>\d+\.png)$"
 )
 CELEB_REAL_RE = re.compile(r"^Celeb-real__id(?P<identity>\d+)_")
 FAKE_PAIR_RE = re.compile(
