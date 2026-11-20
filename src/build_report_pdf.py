@@ -209,12 +209,13 @@ def build(args: argparse.Namespace) -> Path:
             "frames change the final decision. Starting from the frozen GenD "
             "detector, we train a lightweight residual adapter on its 1024-"
             "dimensional CLIP visual features. On a fixed source-group split of "
-            "Celeb-DF v2, uniform training over all six two-of-four blur masks "
-            "improves average local-degradation accuracy from 83.12% to 90.38%. "
-            "An error-weighted objective and a hard-mask objective do not "
-            "outperform uniform mask training. The supported contribution is a "
-            "controlled visual-adaptation study plus the negative result that "
-            "focusing only on difficult frame positions is not sufficient.",
+            "Celeb-DF v2, a clean-only adapter control raises average local-"
+            "degradation accuracy from 83.12% to 88.89%. Uniform training over "
+            "all six two-of-four blur masks raises it further to 90.38%. The "
+            "independent mask-training estimate is +1.50 points with a source-"
+            "group 95% interval of [-0.15, 3.43]. Most of the apparent gain is "
+            "therefore generic visual adaptation, while sparse mask supervision "
+            "has a modest and statistically inconclusive increment.",
             styles["Abstract"],
         )
     )
@@ -238,14 +239,17 @@ def build(args: argparse.Namespace) -> Path:
     story.append(
         Paragraph(
             "We implement a residual adapter after frozen GenD features and "
-            "compare three loss constructions under matched computation. The "
-            "first trains equally on all six local masks. The second up-weights "
-            "GenD error-flip masks. The third backpropagates only through the "
-            "currently hardest eligible mask. All methods use the same split, "
+            "compare clean-only fine-tuning with three degradation objectives "
+            "under the same adapter and data split. Uniform training uses all "
+            "six local masks; error weighting emphasizes GenD flip masks; and "
+            "hard-mask training backpropagates through the currently hardest "
+            "eligible mask. All methods use the same split, "
             "adapter, classifier, six mask forwards, inference aggregation, and "
             "threshold. We evaluate three random seeds and two unseen degradation "
             "types. The main experimental finding is that adaptation helps, while "
-            "harder-position emphasis does not consistently add value.",
+            "harder-position emphasis does not consistently add value. The "
+            "clean-only control reveals that most of the gain over GenD comes "
+            "from generic visual fine-tuning.",
             styles["BodyJustified"],
         )
     )
@@ -253,8 +257,8 @@ def build(args: argparse.Namespace) -> Path:
         Paragraph(
             "<b>Contributions.</b> (1) A parameter-efficient visual adapter for "
             "sparse local-degradation robustness on frozen GenD features. "
-            "(2) A controlled comparison of uniform, error-weighted, and hard-mask "
-            "training with equal forward computation. (3) Video-level error "
+            "(2) A clean-only attribution control and a comparison of uniform, "
+            "error-weighted, and hard-mask training. (3) Video-level error "
             "recovery, worst-mask, and unseen-degradation analysis, including a "
             "transparent negative result for error-focused training.",
             styles["BodyJustified"],
@@ -315,9 +319,12 @@ def build(args: argparse.Namespace) -> Path:
     story.append(Paragraph("3.3 Training objectives", styles["SubHeading"]))
     story.append(
         Paragraph(
-            "Every optimization step evaluates all six masks containing exactly "
-            "two blurred frames, which equalizes forward computation. Uniform "
-            "training averages the six binary cross-entropy losses. Error-weighted "
+            "The clean-only control trains the same adapter using only clean "
+            "videos, with the combined clean plus degraded loss weight placed on "
+            "the clean objective. It never reads degraded features. The other "
+            "variants evaluate all six masks containing exactly two blurred "
+            "frames. Uniform training averages the six binary cross-entropy "
+            "losses. Error-weighted "
             "training assigns weight three to masks for which GenD is correct on "
             "the clean video but wrong under that mask. Hard-mask training selects "
             "the currently highest-loss eligible mask per video. Every method also "
@@ -334,7 +341,7 @@ def build(args: argparse.Namespace) -> Path:
             "340 fake) and four aligned 256x256 face crops per video. The original "
             "and blur-k9 archives contain the same 2,072 paths. A deterministic "
             "group split produces 362 training videos (124 real, 238 fake), 78 "
-            "validation videos (27 real, 51 fake), and 78 test videos. All nine "
+            "validation videos (27 real, 51 fake), and 78 test videos. All twelve "
             "runs use the same split manifest hash. No video crosses splits, and "
             "videos generated from the same source identity pair remain together.",
             styles["BodyJustified"],
@@ -357,9 +364,14 @@ def build(args: argparse.Namespace) -> Path:
 
     story.append(Paragraph("5. Results", styles["SectionHeading"]))
     story.append(Paragraph("5.1 Main comparison", styles["SubHeading"]))
-    rows = [
-        ["Degradation", "GenD", "Uniform", "Error-weighted", "Hard-mask"]
-    ]
+    rows = [[
+        "Condition",
+        "GenD",
+        "Clean-only",
+        "Uniform",
+        "Error-weighted",
+        "Hard-mask",
+    ]]
     for condition, label in (
         ("blur_k9", "Blur k9 (trained)"),
         ("jpeg_q30", "JPEG q30 (unseen)"),
@@ -367,7 +379,7 @@ def build(args: argparse.Namespace) -> Path:
     ):
         base = summary[(summary.condition == condition)].iloc[0]
         method_values = []
-        for method in ("uniform", "flip_weighted", "flip_hard"):
+        for method in ("clean_only", "uniform", "flip_weighted", "flip_hard"):
             row = summary[
                 (summary.condition == condition) & (summary.method == method)
             ].iloc[0]
@@ -379,7 +391,10 @@ def build(args: argparse.Namespace) -> Path:
     story.append(
         KeepTogether(
             [
-                data_table(rows, [3.8 * cm, 2.7 * cm, 3.1 * cm, 3.3 * cm, 3.1 * cm]),
+                data_table(
+                    rows,
+                    [3.0 * cm, 2.5 * cm, 2.7 * cm, 2.9 * cm, 3.0 * cm, 2.8 * cm],
+                ),
                 Paragraph(
                     "Table 1. Test accuracy averaged over the six two-of-four "
                     "degradation masks. Values are mean +/- standard deviation "
@@ -392,13 +407,13 @@ def build(args: argparse.Namespace) -> Path:
     )
     story.append(
         Paragraph(
-            "On the trained blur condition, uniform adaptation improves local "
-            "accuracy by 7.26 percentage points over GenD. The source-group "
-            "bootstrap 95% interval is [1.39, 13.96] points. On unseen JPEG the "
-            "uniform gain is 4.56 points with interval [-1.65, 10.61], and on "
-            "unseen resize the gain is 2.85 points with interval [-2.44, 8.33]. "
-            "The unseen results are directionally positive but not statistically "
-            "conclusive with 52 test groups.",
+            "On trained blur, clean-only fine-tuning gains 5.77 points over "
+            "GenD and mask training adds 1.50 points. The independent mask-"
+            "training interval is [-0.15, 3.43]. For unseen JPEG, clean-only "
+            "gains 3.85 points and mask training adds 0.71. For unseen resize, "
+            "the corresponding increments are 2.71 and 0.14. The mask-training "
+            "effect is directionally positive but not statistically conclusive "
+            "with 52 test groups.",
             styles["BodyJustified"],
         )
     )
@@ -406,16 +421,15 @@ def build(args: argparse.Namespace) -> Path:
         story,
         figures / "local_accuracy_by_condition.png",
         15.5,
-        "Figure 1. Local-degradation accuracy. Uniform mask adaptation is the "
-        "strongest and most stable method; error-focused training does not "
-        "provide a consistent additional gain.",
+        "Figure 1. Local-degradation accuracy. The clean-only adapter captures "
+        "most of the gain over GenD; mask training adds a smaller increment.",
         styles,
     )
 
     story.append(Paragraph("5.2 Error recovery and new errors", styles["SubHeading"]))
     recovery_rows = [["Condition", "Method", "Recovery", "New errors", "Net masks"]]
     for condition, label in (("blur_k9", "Blur"), ("jpeg_q30", "JPEG"), ("resize_25", "Resize")):
-        for method in ("uniform", "flip_weighted", "flip_hard"):
+        for method in ("clean_only", "uniform", "flip_weighted", "flip_hard"):
             row = summary[
                 (summary.condition == condition) & (summary.method == method)
             ].iloc[0]
@@ -423,6 +437,7 @@ def build(args: argparse.Namespace) -> Path:
                 [
                     label,
                     {
+                        "clean_only": "Clean-only",
                         "uniform": "Uniform",
                         "flip_weighted": "Error-weighted",
                         "flip_hard": "Hard-mask",
@@ -437,7 +452,7 @@ def build(args: argparse.Namespace) -> Path:
             [
                 data_table(
                     recovery_rows,
-                    [2.7 * cm, 4.0 * cm, 2.8 * cm, 2.8 * cm, 2.7 * cm],
+                    [2.6 * cm, 3.9 * cm, 2.7 * cm, 2.7 * cm, 2.6 * cm],
                 ),
                 Paragraph(
                     "Table 2. Test error inversion. Recovery is the fraction of "
@@ -484,11 +499,10 @@ def build(args: argparse.Namespace) -> Path:
     )
     story.append(
         Paragraph(
-            "Clean accuracy is 85.90% for GenD, 93.59% for uniform adapter "
-            "training, 93.59% for error weighting, and 92.74% for hard-mask "
-            "training. The clean improvement is a real adaptation effect rather "
-            "than a mask-only effect. It is not sufficient by itself to support "
-            "the hard-position hypothesis.",
+            "Clean accuracy is 85.90% for GenD, 91.88% for clean-only adaptation, "
+            "93.59% for uniform mask training, 93.59% for error weighting, and "
+            "92.74% for hard-mask training. The clean-only result confirms that "
+            "most of the improvement is a generic adaptation effect.",
             styles["BodyJustified"],
         )
     )
@@ -497,6 +511,7 @@ def build(args: argparse.Namespace) -> Path:
     clean_rows = [["Method", "Clean", "Blur local", "JPEG local", "Resize local"]]
     clean_rows.append(["GenD", "85.90%", "83.12%", "88.03%", "88.46%"])
     for method, label in (
+        ("clean_only", "Clean-only"),
         ("uniform", "Uniform"),
         ("flip_weighted", "Error-weighted"),
         ("flip_hard", "Hard-mask"),
@@ -533,13 +548,12 @@ def build(args: argparse.Namespace) -> Path:
     )
     story.append(
         Paragraph(
-            "The uniform adapter improves clean test accuracy by 7.69 points. "
-            "This demonstrates that the residual branch and retrained head alter "
-            "the visual decision function rather than merely adjusting a scalar at "
-            "test time. It also means that the improvement cannot be attributed "
-            "exclusively to local-mask robustness. The clean-loss term is present "
-            "to limit representation drift, but its weight was fixed before the "
-            "confirmatory comparison and was not selected on the test split.",
+            "The clean-only adapter improves clean test accuracy by 5.98 points "
+            "over GenD, and uniform mask training adds another 1.71 points. This "
+            "demonstrates that the residual branch and retrained head alter the "
+            "visual decision function rather than merely adjusting a scalar at "
+            "test time. The gain over GenD therefore cannot be attributed mainly "
+            "to local-mask robustness.",
             styles["BodyJustified"],
         )
     )
@@ -572,12 +586,14 @@ def build(args: argparse.Namespace) -> Path:
     )
     story.append(
         Paragraph(
-            "The result also separates two questions that should not be merged. "
-            "First, does adapting frozen visual features improve robustness? The "
-            "blur result supports yes. Second, does explicit error-position "
-            "selection add value beyond ordinary local augmentation? The current "
-            "evidence does not. Reporting only the improvement over GenD would "
-            "overstate the contribution of the proposed error-selection rule.",
+            "The result separates three questions that should not be merged. "
+            "First, does adapting frozen visual features improve robustness? Yes. "
+            "Second, does local-mask training add value beyond clean-only fine-"
+            "tuning? The estimate is positive on blur but not statistically "
+            "conclusive. Third, does explicit error-position selection add value "
+            "beyond ordinary local augmentation? The current evidence does not. "
+            "Reporting only the improvement over GenD would overstate both "
+            "contributions.",
             styles["BodyJustified"],
         )
     )
@@ -585,13 +601,13 @@ def build(args: argparse.Namespace) -> Path:
     story.append(Paragraph("6. Discussion and Limitations", styles["SectionHeading"]))
     story.append(
         Paragraph(
-            "The strongest supported intervention is uniform local-mask "
-            "adaptation of the visual representation. The experiment does not "
+            "The strongest supported intervention is visual adaptation itself. "
+            "Clean-only fine-tuning explains 5.77 of the 7.26 points gained over "
+            "GenD on trained blur. Local-mask training contributes 1.50 further "
+            "points, but its interval crosses zero. The experiment also does not "
             "support error weighting or hard-position emphasis as superior "
-            "training rules. This separation is useful: it distinguishes gains "
-            "from visual adaptation from gains from the proposed error-selection "
-            "heuristic. A performance improvement over GenD alone would be "
-            "insufficient evidence for the hard-position mechanism.",
+            "training rules. A performance improvement over GenD alone would be "
+            "insufficient evidence for either mechanism.",
             styles["BodyJustified"],
         )
     )
@@ -621,13 +637,12 @@ def build(args: argparse.Namespace) -> Path:
     story.append(Paragraph("7. Conclusion", styles["SectionHeading"]))
     story.append(
         Paragraph(
-            "A lightweight residual adapter on frozen GenD features "
-            "substantially improves clean and local-blur detection on the fixed "
-            "test split. Training only on error-flip or hardest positions does "
-            "not improve over uniform training across all two-frame masks. The "
-            "result shows the value of visual adaptation while rejecting a "
-            "stronger claim that sparse hard-position emphasis is the source of "
-            "the improvement.",
+            "A lightweight residual adapter on frozen GenD features substantially "
+            "improves performance on the fixed test split. The clean-only control "
+            "shows that most of this gain is generic visual fine-tuning. Local-"
+            "mask training adds a modest and statistically inconclusive increment, "
+            "while error-flip and hardest-position emphasis do not improve over "
+            "uniform training across all two-frame masks.",
             styles["BodyJustified"],
         )
     )
@@ -682,7 +697,7 @@ def build(args: argparse.Namespace) -> Path:
     story.append(
         Paragraph(
             "The split is generated once from the fixed configuration seed and "
-            "written to every run. A SHA256 comparison of all nine manifests "
+            "written to every run. A SHA256 comparison of all twelve manifests "
             "produced one unique digest, verifying that the model seeds changed "
             "while the data partition did not. Early stopping uses only the 78 "
             "validation videos. The 78 test videos are read only during final "

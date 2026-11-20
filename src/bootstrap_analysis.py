@@ -167,6 +167,15 @@ def main() -> None:
             "adapter_vs_base_clean": adapter_clean - base_clean,
             "method_vs_uniform_local": adapter - uniform,
         }
+        if method == "uniform":
+            clean_only_entry = observations.get((condition, "clean_only"))
+            if clean_only_entry is not None:
+                _, clean_only_adapter, _, _ = averaged_correctness(
+                    sorted(clean_only_entry)
+                )
+                comparisons["mask_training_vs_clean_only_local"] = (
+                    adapter - clean_only_adapter
+                )
         for comparison, difference in comparisons.items():
             point, lower, upper = bootstrap_difference(
                 difference,

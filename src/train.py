@@ -24,7 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--features", required=True)
     parser.add_argument(
         "--method",
-        choices=("uniform", "flip_hard", "flip_weighted"),
+        choices=("clean_only", "uniform", "flip_hard", "flip_weighted"),
         required=True,
     )
     parser.add_argument("--seed", type=int, required=True)
@@ -272,36 +272,47 @@ def train(args: argparse.Namespace) -> Path:
         for start in range(0, len(train_indices), int(training["batch_size"])):
             index = train_indices[start : start + int(training["batch_size"])]
             labels = label_index[index].float()
-            losses = mask_losses(
-                model, clean[index], blurred[index], labels, train_masks
-            )
-            if args.method == "uniform":
-                degraded_loss = losses.mean()
-            elif args.method == "flip_hard":
-                degraded_loss, _ = select_flip_hard_loss(
-                    losses,
-                    base_clean_probability[index],
-                    base_mask_probability[index],
-                    labels,
-                    float(training["threshold"]),
-                )
+            if args.method == "clean_only":
+                degraded_loss = None
             else:
-                degraded_loss = select_flip_weighted_loss(
-                    losses,
-                    base_clean_probability[index],
-                    base_mask_probability[index],
-                    labels,
-                    float(training["threshold"]),
-                    float(training["flip_weight"]),
+                losses = mask_losses(
+                    model, clean[index], blurred[index], labels, train_masks
                 )
+                if args.method == "uniform":
+                    degraded_loss = losses.mean()
+                elif args.method == "flip_hard":
+                    degraded_loss, _ = select_flip_hard_loss(
+                        losses,
+                        base_clean_probability[index],
+                        base_mask_probability[index],
+                        labels,
+                        float(training["threshold"]),
+                    )
+                else:
+                    degraded_loss = select_flip_weighted_loss(
+                        losses,
+                        base_clean_probability[index],
+                        base_mask_probability[index],
+                        labels,
+                        float(training["threshold"]),
+                        float(training["flip_weight"]),
+                    )
             _, clean_probability = model(clean[index])
             clean_loss = torch.nn.functional.binary_cross_entropy(
                 clean_probability.clamp(1e-6, 1 - 1e-6), labels
             )
-            loss = (
-                float(training["clean_loss_weight"]) * clean_loss
-                + float(training["degraded_loss_weight"]) * degraded_loss
-            )
+            if degraded_loss is None:
+                # Match the total loss weight used by mask-trained adapters.
+                total_weight = (
+                    float(training["clean_loss_weight"])
+                    + float(training["degraded_loss_weight"])
+                )
+                loss = total_weight * clean_loss
+            else:
+                loss = (
+                    float(training["clean_loss_weight"]) * clean_loss
+                    + float(training["degraded_loss_weight"]) * degraded_loss
+                )
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(

@@ -10,11 +10,13 @@ the frozen GenD detector, we insert a lightweight residual adapter after the
 blur masks. A second variant up-weights masks on which GenD was correct on the
 clean video but wrong on the degraded video; a third selects the hardest
 eligible mask. On a fixed source-group split of Celeb-DF v2, all three
-adapters substantially improve over GenD. However, error-focused weighting
-and hard-mask selection do not stably outperform uniform mask training. The
-main finding is therefore precise: lightweight visual adaptation improves
-local-degradation robustness, while training only harder degraded positions
-is not sufficient.
+adapters substantially improve over GenD. A clean-only adapter control shows
+that generic fine-tuning accounts for most of this gain: local-mask training
+adds 1.50 points on blur, with a source-group 95% interval of [-0.15, 3.43].
+Error-focused weighting and hard-mask selection do not stably outperform
+uniform mask training. The supported conclusion is that lightweight visual
+adaptation improves performance, while the independent benefit of sparse
+mask training is modest and not yet conclusive.
 
 ## 1. Introduction
 
@@ -29,11 +31,11 @@ local degradation?
 
 We make three contributions. First, we implement a parameter-efficient visual
 adapter on frozen GenD features. Second, we construct a controlled comparison
-in which uniform, error-weighted, and hard-mask training receive the same six
-masks and the same inference aggregation. Third, we evaluate video-level
-errors, worst-mask performance, and performance under two degradation types
-not used for training. We report the negative result that error-specific
-weighting does not consistently beat uniform augmentation.
+that includes clean-only fine-tuning, uniform mask training, error-weighted
+training, and hard-mask training under the same architecture and split. Third,
+we evaluate video-level errors, worst-mask performance, and two degradation
+types not used for training. We report both the independent contribution of
+local-mask supervision and the negative result for error-specific weighting.
 
 ## 2. Related Work
 
@@ -82,10 +84,12 @@ CLIP encoder is frozen.
 
 ### 3.3 Training objectives
 
-For each video, all six masks containing exactly two blurred frames are
-evaluated in every optimization step. This keeps forward computation equal
-across variants.
+The clean-only control trains the same adapter with the full combined loss
+weight on clean videos and never reads degraded features. The other variants
+evaluate all six masks containing exactly two blurred frames in every
+optimization step.
 
+- Clean-only: generic visual fine-tuning control with no degradation supervision.
 - Uniform: average the six video-level binary cross-entropy losses.
 - Error-weighted: assign weight 3 to masks that GenD classified incorrectly
   when its clean prediction was correct, then normalize the weights per video.
@@ -104,7 +108,7 @@ banks contain the same 2,072 paths.
 
 The deterministic split contains 362 training videos (124 real, 238 fake),
 78 validation videos (27 real, 51 fake), and 78 test videos (27 real, 51 fake).
-All nine runs use the same split manifest hash. A group contains the exact
+All twelve runs use the same split manifest hash. A group contains the exact
 video and all files generated from the same synthetic identity pair. No video
 or group crosses splits.
 
@@ -137,38 +141,42 @@ resampling over the 52 held-out source groups rather than over masks.
 
 ![Local accuracy](../results_final/figures/local_accuracy_by_condition.png)
 
-| Degradation | GenD | Uniform adapter | Error-weighted | Hard-mask |
-|---|---:|---:|---:|---:|
-| Blur k9, trained | 83.12% | 90.38 ± 0.46% | 90.31 ± 0.53% | 89.67 ± 0.66% |
-| JPEG q30, unseen | 88.03% | 92.59 ± 0.71% | 92.66 ± 0.61% | 92.24 ± 1.05% |
-| Resize 25%, unseen | 88.46% | 91.31 ± 0.56% | 91.31 ± 0.56% | 91.10 ± 0.73% |
+| Degradation | GenD | Clean-only | Uniform adapter | Error-weighted | Hard-mask |
+|---|---:|---:|---:|---:|---:|
+| Blur k9, trained | 83.12% | 88.89% | 90.38 ± 0.46% | 90.31 ± 0.53% | 89.67 ± 0.66% |
+| JPEG q30, unseen | 88.03% | 91.88% | 92.59 ± 0.71% | 92.66 ± 0.61% | 92.24 ± 1.05% |
+| Resize 25%, unseen | 88.46% | 91.17% | 91.31 ± 0.56% | 91.31 ± 0.56% | 91.10 ± 0.73% |
 
-Averaged over seeds, clean accuracy is 85.90% for GenD, 93.59% for the
-uniform adapter, 93.59% for error weighting, and 92.74% for hard-mask
-training. The clean gain is a genuine effect of adapting the visual
-representation and classifier, not purely a local-mask effect.
+Averaged over seeds, clean accuracy is 85.90% for GenD, 91.88% for the
+clean-only adapter, 93.59% for the uniform adapter, 93.59% for error
+weighting, and 92.74% for hard-mask training. The clean-only result shows
+that most of the improvement is generic visual adaptation.
 
 ### Error recovery and harm
 
 | Condition | Method | Recovery | New errors | Net recovered mask events |
 |---|---|---:|---:|---:|
+| Blur | Clean-only | 50.21% | 3.26% | 27.00 |
 | Blur | Uniform | 56.54% | 2.74% | 34.00 |
 | Blur | Error-weighted | 56.54% | 2.83% | 33.67 |
 | Blur | Hard-mask | 55.27% | 3.34% | 30.67 |
+| JPEG | Clean-only | 59.52% | 3.72% | 18.00 |
 | JPEG | Uniform | 66.67% | 3.88% | 21.33 |
+| Resize | Clean-only | 50.62% | 3.54% | 12.67 |
 | Resize | Uniform | 53.70% | 3.78% | 13.33 |
 
 ![Recovery and harm](../results_final/figures/recovery_and_harm.png)
 
-On the trained blur condition, uniform adaptation improves local accuracy by
-7.26 percentage points relative to GenD. The source-group bootstrap 95%
-interval is [1.39, 13.96]. The adapter recovers more errors than it creates,
-and the net gain is positive.
+On the trained blur condition, clean-only adaptation improves local accuracy
+by 5.77 points over GenD. Adding mask training raises it by another 1.50
+points. The independent mask-training source-group 95% interval is
+[-0.15, 3.43], so the estimate is directionally positive but not
+statistically conclusive.
 
-For unseen JPEG, uniform adaptation has a +4.56 point mean gain but the 95%
-interval includes zero [-1.65, 10.61]. For unseen resize, the gain is +2.85
-points with interval [-2.44, 8.33]. These results are promising but not
-statistically conclusive with 52 test groups.
+For unseen JPEG, clean-only adaptation gains 3.85 points over GenD and mask
+training adds 0.71. For unseen resize, clean-only gains 2.71 and mask training
+adds 0.14. These results do not support a strong claim of mask-training
+generalization with 52 test groups.
 
 ### Error-focused objectives
 
@@ -195,11 +203,12 @@ but the hard-selection objective does not provide a reliable additional gain.
 
 ## 6. Discussion and Limitations
 
-The strongest supported intervention is uniform local-mask adaptation of the
-visual representation. The data do not support a claim that error weighting
-or hard-position selection is a superior training rule. This is still a
-useful result: it separates the benefit of visual adaptation from the benefit
-of the proposed error-selection heuristic.
+The strongest supported intervention is visual adaptation itself. Clean-only
+fine-tuning accounts for 5.77 of the 7.26 points gained over GenD on trained
+blur. Local-mask training contributes an additional 1.50 points. The data do
+not support a claim that error weighting or hard-position selection is a
+superior training rule. This is still a useful result: it separates generic
+fine-tuning, local-mask supervision, and error-selection heuristics.
 
 Hard-mask selection may be unstable for three reasons: the selected mask can
 change as the adapter updates, the hardest current mask may emphasize label
@@ -222,11 +231,13 @@ because they do not contain the new visual features.
 
 ## 7. Conclusion
 
-A lightweight adapter on frozen GenD features substantially improves local
-blur robustness and clean accuracy. Training on rare error-flip positions does
-not consistently improve over training on the complete set of two-frame
-masks. A fair Track 2 contribution is therefore the controlled method and
-analysis, including the negative result for harder-position emphasis.
+A lightweight adapter on frozen GenD features substantially improves
+performance. The clean-only control shows that most of this gain is generic
+visual fine-tuning. Local-mask training adds a modest, directionally positive
+but statistically inconclusive increment, while rare error-flip position
+selection does not consistently improve over uniform masks. A fair Track 2
+contribution is therefore the controlled attribution analysis, including the
+negative result for harder-position emphasis.
 
 ## Reproducibility
 

@@ -23,7 +23,7 @@ for condition in jpeg_q30 resize_25; do
   fi
 
   for seed in 2026 2027 2028; do
-    for method in uniform flip_weighted flip_hard; do
+    for method in clean_only uniform flip_weighted flip_hard; do
       "$PYTHON" -m src.evaluate \
         --features "$ROOT/artifacts/features_${condition}.npz" \
         --checkpoint "$ROOT/runs_final/${method}_seed${seed}/best.pt" \

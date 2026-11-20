@@ -5,9 +5,11 @@ starts from the published GenD CLIP ViT-L/14 detector, freezes its vision
 encoder, and trains a small residual adapter on the 1024-dimensional frame
 features.
 
-The central experiment compares two training objectives under identical
-compute and architecture:
+The central experiment compares training objectives under identical
+architecture and data:
 
+- `clean_only`: train the adapter on clean videos only, with the same total
+  loss weight and optimization schedule.
 - `uniform`: average the video-level loss over all six two-frame blur masks.
 - `flip_weighted`: retain all six masks but up-weight masks on which the
   original GenD prediction is wrong while its clean prediction is correct.
@@ -24,16 +26,19 @@ The fixed Celeb-DF v2 split contains 362 training, 78 validation, and 78 test
 videos. All three model seeds use the same split manifest. Mean accuracy over
 the six two-of-four degradation masks is:
 
-| Condition | GenD | Uniform adapter | Error-weighted | Hard-mask |
-|---|---:|---:|---:|---:|
-| Blur k9, trained | 83.12% | **90.38%** | 90.31% | 89.67% |
-| JPEG q30, unseen | 88.03% | 92.59% | **92.66%** | 92.24% |
-| Resize 25%, unseen | 88.46% | **91.31%** | **91.31%** | 91.10% |
+| Condition | GenD | Clean-only adapter | Uniform adapter | Error-weighted | Hard-mask |
+|---|---:|---:|---:|---:|---:|
+| Blur k9, trained | 83.12% | 88.89% | **90.38%** | 90.31% | 89.67% |
+| JPEG q30, unseen | 88.03% | 91.88% | 92.59% | **92.66%** | 92.24% |
+| Resize 25%, unseen | 88.46% | 91.17% | **91.31%** | **91.31%** | 91.10% |
 
-Uniform local-mask adaptation improves trained-blur accuracy by 7.26
-percentage points. Its source-group bootstrap 95% interval is [1.39, 13.96].
-Error weighting and hard-mask selection do not provide a stable additional
-gain, which is reported as a negative result rather than hidden.
+Clean-only adaptation shows that generic fine-tuning explains most of the
+gain over GenD. After controlling for it, local-mask training adds 1.50 points
+on blur, 0.71 on unseen JPEG, and 0.14 on unseen resize. The blur difference
+has a source-group bootstrap interval of [-0.15, 3.43], so the independent
+mask-training effect is directionally positive but not statistically
+conclusive. Error weighting and hard-mask selection do not provide a stable
+additional gain.
 
 The final course report is [`reports/CV_ErrorFlip_GenD_Report.pdf`](reports/CV_ErrorFlip_GenD_Report.pdf).
 Aggregate tables and figures are under [`results/`](results/).

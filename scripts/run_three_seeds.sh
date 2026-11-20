@@ -7,7 +7,7 @@ RUN_ROOT="$ROOT/runs_final"
 PYTHON="$ROOT/.venv/bin/python"
 
 for seed in 2026 2027 2028; do
-  for method in uniform flip_weighted flip_hard; do
+  for method in clean_only uniform flip_weighted flip_hard; do
     "$PYTHON" -m src.train \
       --features "$FEATURES" \
       --method "$method" \

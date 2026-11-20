@@ -68,7 +68,7 @@ def main() -> None:
         root = Path(directory)
         features = root / "features.npz"
         build_synthetic_features(features)
-        for method in ("uniform", "flip_hard", "flip_weighted"):
+        for method in ("clean_only", "uniform", "flip_hard", "flip_weighted"):
             run_dir = root / method
             checkpoint = train(
                 Namespace(
