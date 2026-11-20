@@ -17,7 +17,8 @@ Error-focused weighting and hard-mask selection do not stably outperform
 uniform mask training. The supported conclusion is that lightweight visual
 adaptation improves performance, while the independent benefit of sparse
 mask training is modest and not yet conclusive. Mixed blur/JPEG/resize
-training also does not outperform blur-specific adaptation.
+training, mask-consistency regularization, and static expert-weight tuning
+also do not outperform blur-specific adaptation.
 
 ## 1. Introduction
 
@@ -238,13 +239,14 @@ interval of [-0.68, 2.78]. Training `k=4` is +0.71 points, with interval
 The notable pattern is a graceful decline as the number of test-time degraded
 frames increases.
 
-### Six-method follow-up
+### Specialist, mixed and consistency adapters
 
 | Method | Clean | Blur local | JPEG local | Resize local |
 |---|---:|---:|---:|---:|
 | GenD | 85.90% | 83.12% | 88.03% | 88.46% |
 | Clean-only | 91.88% | 88.89% | 91.88% | 91.17% |
 | Blur-only | **93.59%** | 90.38% | **92.59%** | **91.31%** |
+| Mask-consistency | 92.74% | 89.89% | 92.74% | 91.38% |
 | JPEG-only | 92.74% | **90.81%** | 91.31% | 91.45% |
 | Resize-only | **93.59%** | 89.25% | 93.02% | 90.31% |
 | Mixed-all | 90.60% | 88.53% | 90.10% | 89.60% |
@@ -256,6 +258,13 @@ and also lowers clean accuracy. The low-cost mixed arm is also below
 blur-only, reaching 88.89%, 91.03% and 90.46% on blur, JPEG and resize.
 With this data and one small adapter, balancing the objectives yields a
 conservative compromise rather than complementary robustness.
+
+The mask-consistency objective also does not solve the problem. It improves
+JPEG by 0.14 points and resize by 0.07 points over Blur-only, but loses 0.49
+points on blur; the paired source-group interval for that loss is
+[-0.94, -0.14]. Its blur worst-mask accuracy is 86.75%, versus 88.03% for
+Blur-only. Enforcing agreement across masks can suppress useful variation as
+well as harmful flips.
 
 ### Static specialist ensemble
 

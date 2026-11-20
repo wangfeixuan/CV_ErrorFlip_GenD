@@ -27,6 +27,7 @@ def parse_args() -> argparse.Namespace:
         choices=(
             "clean_only",
             "uniform",
+            "consistency",
             "jpeg_only",
             "resize_only",
             "uniform_random",
@@ -105,6 +106,19 @@ def mask_losses(
     labels: torch.Tensor,
     masks: torch.Tensor,
 ) -> torch.Tensor:
+    losses, _ = mask_losses_and_probabilities(
+        model, clean, blurred, labels, masks
+    )
+    return losses
+
+
+def mask_losses_and_probabilities(
+    model: GenDAdapter,
+    clean: torch.Tensor,
+    blurred: torch.Tensor,
+    labels: torch.Tensor,
+    masks: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
     composed = compose_masks(clean, blurred, masks)
     flat = composed.reshape(-1, composed.shape[-2], composed.shape[-1])
     _, probabilities = model(flat)
@@ -113,7 +127,7 @@ def mask_losses(
         labels.repeat(len(masks)),
         reduction="none",
     ).reshape(len(masks), len(labels))
-    return losses
+    return losses, probabilities.reshape(len(masks), len(labels))
 
 
 def select_flip_hard_loss(
@@ -283,6 +297,7 @@ def train(args: argparse.Namespace) -> Path:
         for start in range(0, len(train_indices), int(training["batch_size"])):
             index = train_indices[start : start + int(training["batch_size"])]
             labels = label_index[index].float()
+            consistency_loss = None
             if args.method == "clean_only":
                 degraded_loss = None
             elif args.method == "uniform_random":
@@ -303,11 +318,16 @@ def train(args: argparse.Namespace) -> Path:
                     labels,
                 )
             else:
-                losses = mask_losses(
+                losses, mask_probabilities = mask_losses_and_probabilities(
                     model, clean[index], blurred[index], labels, train_masks
                 )
                 if args.method in ("uniform", "jpeg_only", "resize_only"):
                     degraded_loss = losses.mean()
+                elif args.method == "consistency":
+                    degraded_loss = losses.mean()
+                    consistency_loss = mask_probabilities.var(
+                        dim=0, unbiased=False
+                    ).mean()
                 elif args.method == "flip_hard":
                     degraded_loss, _ = select_flip_hard_loss(
                         losses,
@@ -341,6 +361,8 @@ def train(args: argparse.Namespace) -> Path:
                     float(training["clean_loss_weight"]) * clean_loss
                     + float(training["degraded_loss_weight"]) * degraded_loss
                 )
+                if consistency_loss is not None:
+                    loss = loss + float(training["consistency_weight"]) * consistency_loss
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(

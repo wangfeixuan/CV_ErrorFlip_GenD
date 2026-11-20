@@ -26,6 +26,7 @@ training:
   weight_decay: 0.0001
   clean_loss_weight: 0.50
   degraded_loss_weight: 1.00
+  consistency_weight: 5.00
   flip_weight: 3.00
   gradient_clip: 1.0
   threshold: 0.50

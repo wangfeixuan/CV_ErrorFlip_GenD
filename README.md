@@ -80,6 +80,7 @@ The primary comparison now includes individual JPEG and resize adapters:
 | GenD | 85.90% | 83.12% | 88.03% | 88.46% |
 | Clean-only | 91.88% | 88.89% | 91.88% | 91.17% |
 | Blur-only | **93.59%** | 90.38% | **92.59%** | **91.31%** |
+| Mask-consistency | 92.74% | 89.89% | 92.74% | 91.38% |
 | JPEG-only | 92.74% | **90.81%** | 91.31% | 91.45% |
 | Resize-only | **93.59%** | 89.25% | 93.02% | 90.31% |
 | Mixed-all | 90.60% | 88.53% | 90.10% | 89.60% |
@@ -87,6 +88,11 @@ The primary comparison now includes individual JPEG and resize adapters:
 No specialist dominates its matching condition, which is consistent with the
 small dataset and high overlap between the three deepfake-centric degradation
 objectives. The full mixed arm remains a negative result.
+
+Mask-consistency adds a variance penalty across the six blur-position
+predictions. It loses 0.49 points on blur and 1.28 points in worst-mask
+accuracy relative to Blur-only, while gaining only 0.14 on JPEG and 0.07 on
+resize. The consistency objective remains a negative result.
 
 ### Static weight tuning
 

@@ -14,7 +14,7 @@ split and the source-group bootstrap analysis.
   frozen test result;
 - `aggregate_all_conditions.*`: includes GenD-matched summaries, clean-only,
   blur-only, JPEG-only, resize-only, mixed, error-weighted, hard-mask, and
-  random-mask sweep results;
+  mask-consistency, and random-mask sweep results;
 - `figures/`: report-ready comparison, position-sensitivity, and error
   recovery/harm plots.
 

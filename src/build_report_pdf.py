@@ -223,7 +223,9 @@ def build(args: argparse.Namespace) -> Path:
             "independent mask-training estimate is +1.50 points with a source-"
             "group 95% interval of [-0.15, 3.43]. Most of the apparent gain is "
             "therefore generic visual adaptation, while sparse mask supervision "
-            "has a modest and statistically inconclusive increment.",
+            "has a modest and statistically inconclusive increment. Mask-"
+            "consistency regularization, mixed-degradation training and static "
+            "expert-weight tuning do not improve the blur-specific adapter.",
             styles["Abstract"],
         )
     )
@@ -499,7 +501,7 @@ def build(args: argparse.Namespace) -> Path:
     add_figure(
         story,
         figures / "recovery_and_harm.png",
-        15.5,
+        12.8,
         "Figure 2. Error recovery versus newly introduced errors. All adapters "
         "recover considerably more blur errors than they create, while uniform "
         "training has the best net balance.",
@@ -590,12 +592,18 @@ def build(args: argparse.Namespace) -> Path:
         styles,
     )
 
-    story.append(Paragraph("5.5 Six-method comparison", styles["SubHeading"]))
+    story.append(
+        Paragraph(
+            "5.5 Specialist, mixed and consistency adapters",
+            styles["SubHeading"],
+        )
+    )
     six_rows = [["Method", "Clean", "Blur local", "JPEG local", "Resize local"]]
     for method, label in (
         ("base", "GenD"),
         ("clean_only", "Clean-only"),
         ("uniform", "Blur-only"),
+        ("consistency", "Mask-consistency"),
         ("jpeg_only", "JPEG-only"),
         ("resize_only", "Resize-only"),
         ("mixed_full", "Mixed-all"),
@@ -629,9 +637,10 @@ def build(args: argparse.Namespace) -> Path:
                     [4.7 * cm, 2.7 * cm, 2.9 * cm, 2.9 * cm, 2.9 * cm],
                 ),
                 Paragraph(
-                    "Table 4. Six-method comparison. Blur-only, JPEG-only and "
-                    "Resize-only use the same Adapter and mask budget. Mixed-all "
-                    "evaluates three degradation types in every training step.",
+                    "Table 4. Main Adapter comparison. Blur-only, JPEG-only and "
+                    "Resize-only use the same Adapter and mask budget. "
+                    "Mask-consistency adds a prediction-variance penalty across "
+                    "the six blur masks. Mixed-all uses all degradation types.",
                     styles["Caption"],
                 ),
             ]
@@ -639,7 +648,11 @@ def build(args: argparse.Namespace) -> Path:
     )
     story.append(
         Paragraph(
-            "There is no clean one-specialist-per-condition pattern. JPEG-only "
+            "Mask-consistency changes the picture only slightly: compared with "
+            "Blur-only it loses 0.49 points on blur, gains 0.14 on JPEG and 0.07 "
+            "on resize. The blur difference is negative even under source-group "
+            "bootstrap. There is still no clean one-specialist-per-condition "
+            "pattern. JPEG-only "
             "reaches 90.81% on blur, while Resize-only does not lead on resize "
             "(90.31%). Blur-only remains strongest on JPEG at 92.59%. Mixed-all "
             "is below every specialist on all three conditions and also lowers "
@@ -662,15 +675,6 @@ def build(args: argparse.Namespace) -> Path:
             styles["BodyJustified"],
         )
     )
-    add_figure(
-        story,
-        figures / "recovery_and_harm.png",
-        15.5,
-        "Figure 5. Error recovery and harms including mixed variants. Multi-"
-        "degradation training does not improve the net recovery profile.",
-        styles,
-    )
-
     story.append(Paragraph("5.6 Static specialist ensemble", styles["SubHeading"]))
     selected_weights = ensemble["selected_weights"]
     ensemble_test = ensemble["test"]
@@ -686,14 +690,6 @@ def build(args: argparse.Namespace) -> Path:
             "before test evaluation.",
             styles["BodyJustified"],
         )
-    )
-    add_figure(
-        story,
-        figures / "ensemble_weight_curve.png",
-        14.0,
-        "Figure 6. Validation-only sweep of the static specialist ensemble. "
-        "The dashed line marks the selected Blur weight.",
-        styles,
     )
     story.append(
         Paragraph(
