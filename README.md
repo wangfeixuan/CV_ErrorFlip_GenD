@@ -71,6 +71,23 @@ The mixed variants are retained as negative controls. With this data size and
 one small adapter, balancing three degradation objectives creates a
 conservative compromise rather than complementary robustness.
 
+### Six-method comparison
+
+The primary comparison now includes individual JPEG and resize adapters:
+
+| Method | Clean | Blur | JPEG | Resize |
+|---|---:|---:|---:|---:|
+| GenD | 85.90% | 83.12% | 88.03% | 88.46% |
+| Clean-only | 91.88% | 88.89% | 91.88% | 91.17% |
+| Blur-only | **93.59%** | 90.38% | **92.59%** | **91.31%** |
+| JPEG-only | 92.74% | **90.81%** | 91.31% | 91.45% |
+| Resize-only | **93.59%** | 89.25% | 93.02% | 90.31% |
+| Mixed-all | 90.60% | 88.53% | 90.10% | 89.60% |
+
+No specialist dominates its matching condition, which is consistent with the
+small dataset and high overlap between the three deepfake-centric degradation
+objectives. The full mixed arm remains a negative result.
+
 The final course report is [`reports/CV_ErrorFlip_GenD_Report.pdf`](reports/CV_ErrorFlip_GenD_Report.pdf).
 Aggregate tables and figures are under [`results/`](results/).
 

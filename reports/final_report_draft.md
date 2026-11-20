@@ -238,20 +238,24 @@ interval of [-0.68, 2.78]. Training `k=4` is +0.71 points, with interval
 The notable pattern is a graceful decline as the number of test-time degraded
 frames increases.
 
-### Multi-degradation follow-up
+### Six-method follow-up
 
-| Adapter training | Clean | Blur local | JPEG local | Resize local |
+| Method | Clean | Blur local | JPEG local | Resize local |
 |---|---:|---:|---:|---:|
-| Blur-specific | 93.59% | **90.38%** | **92.59%** | **91.31%** |
-| Mixed, one type/step | 93.16% | 88.89% | 91.03% | 90.46% |
-| Mixed, all types/step | 90.60% | 88.53% | 90.10% | 89.60% |
+| GenD | 85.90% | 83.12% | 88.03% | 88.46% |
+| Clean-only | 91.88% | 88.89% | 91.88% | 91.17% |
+| Blur-only | **93.59%** | 90.38% | **92.59%** | **91.31%** |
+| JPEG-only | 92.74% | **90.81%** | 91.31% | 91.45% |
+| Resize-only | **93.59%** | 89.25% | 93.02% | 90.31% |
+| Mixed-all | 90.60% | 88.53% | 90.10% | 89.60% |
 
-Neither mixed strategy improves any tested condition. Mixed one-type is about
-1.5 points below blur-specific on blur and JPEG, and 0.85 points below on
-resize. The higher-exposure mixed arm is lower again and also reduces clean
-accuracy by about 3 points. With this data and one small adapter, balancing
-three degradation objectives yields a conservative compromise rather than
-complementary robustness. The mixed variants remain useful negative controls.
+There is no clean one-specialist-per-condition pattern. JPEG-only reaches
+90.81% on blur, while Resize-only does not lead on resize. Blur-only remains
+strongest on JPEG. Mixed-all is below every specialist on all three conditions
+and also lowers clean accuracy. The low-cost mixed arm is also below
+blur-only, reaching 88.89%, 91.03% and 90.46% on blur, JPEG and resize.
+With this data and one small adapter, balancing the objectives yields a
+conservative compromise rather than complementary robustness.
 
 Paired source-group intervals confirm the direction. The one-type mixed arm
 is -1.50 points versus blur-specific on blur [-3.33, 0.00], -1.57 on JPEG

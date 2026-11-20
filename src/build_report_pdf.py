@@ -584,31 +584,48 @@ def build(args: argparse.Namespace) -> Path:
         styles,
     )
 
-    story.append(Paragraph("5.5 Mixed-degradation follow-up", styles["SubHeading"]))
-    mixed_rows = [["Adapter training", "Clean", "Blur local", "JPEG local", "Resize local"]]
+    story.append(Paragraph("5.5 Six-method comparison", styles["SubHeading"]))
+    six_rows = [["Method", "Clean", "Blur local", "JPEG local", "Resize local"]]
     for method, label in (
-        ("uniform", "Blur-specific"),
-        ("mixed", "Mixed, one type/step"),
-        ("mixed_full", "Mixed, all types/step"),
+        ("base", "GenD"),
+        ("clean_only", "Clean-only"),
+        ("uniform", "Blur-only"),
+        ("jpeg_only", "JPEG-only"),
+        ("resize_only", "Resize-only"),
+        ("mixed_full", "Mixed-all"),
     ):
-        selected = summary[summary.method == method]
+        selected = summary if method == "base" else summary[summary.method == method]
         values = [
-            pct(selected[selected.condition == condition].iloc[0].adapter_local_accuracy_mean)
+            pct(
+                selected[selected.condition == condition]
+                .iloc[0]
+                .adapter_local_accuracy_mean
+            )
+            if method != "base"
+            else pct(
+                selected[selected.condition == condition]
+                .iloc[0]
+                .base_local_accuracy_mean
+            )
             for condition in ("blur_k9", "jpeg_q30", "resize_25")
         ]
-        clean_value = selected.iloc[0].adapter_clean_accuracy_mean
-        mixed_rows.append([label, pct(clean_value), *values])
+        clean_value = (
+            selected.iloc[0].adapter_clean_accuracy_mean
+            if method != "base"
+            else selected.iloc[0].base_clean_accuracy_mean
+        )
+        six_rows.append([label, pct(clean_value), *values])
     story.append(
         KeepTogether(
             [
                 data_table(
-                    mixed_rows,
+                    six_rows,
                     [4.7 * cm, 2.7 * cm, 2.9 * cm, 2.9 * cm, 2.9 * cm],
                 ),
                 Paragraph(
-                    "Table 4. Multi-degradation training comparison. The low-cost "
-                    "arm samples one type per video and step; the full arm trains "
-                    "on blur, JPEG and resize in every step.",
+                    "Table 4. Six-method comparison. Blur-only, JPEG-only and "
+                    "Resize-only use the same Adapter and mask budget. Mixed-all "
+                    "evaluates three degradation types in every training step.",
                     styles["Caption"],
                 ),
             ]
@@ -616,13 +633,15 @@ def build(args: argparse.Namespace) -> Path:
     )
     story.append(
         Paragraph(
-            "Neither mixed strategy exceeds blur-specific training on any tested "
-            "condition. Mixed one-type reaches 88.89%, 91.03% and 90.46% on blur, "
-            "JPEG and resize, versus 90.38%, 92.59% and 91.31% for blur-specific "
-            "training. Mixed all-types is lower again and drops clean accuracy to "
-            "90.60%. The negative result indicates that with this data and small "
-            "adapter, balancing three objectives produces a conservative compromise "
-            "rather than complementary robustness.",
+            "There is no clean one-specialist-per-condition pattern. JPEG-only "
+            "reaches 90.81% on blur, while Resize-only does not lead on resize "
+            "(90.31%). Blur-only remains strongest on JPEG at 92.59%. Mixed-all "
+            "is below every specialist on all three conditions and also lowers "
+            "clean accuracy to 90.60%. The low-cost mixed arm is also below "
+            "blur-only, reaching 88.89%, 91.03% and 90.46% on blur, JPEG and "
+            "resize. With this data and small adapter, balancing the objectives "
+            "produces a conservative compromise rather than complementary "
+            "robustness.",
             styles["BodyJustified"],
         )
     )

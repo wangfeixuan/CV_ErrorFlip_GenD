@@ -72,6 +72,8 @@ def main() -> None:
         for method in (
             "clean_only",
             "uniform",
+            "jpeg_only",
+            "resize_only",
             "uniform_random",
             "flip_hard",
             "flip_weighted",

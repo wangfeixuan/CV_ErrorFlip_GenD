@@ -11,7 +11,9 @@ import pandas as pd
 METHOD_LABELS = {
     "base": "GenD",
     "clean_only": "Clean-only",
-    "uniform": "Adapter-uniform",
+    "uniform": "Blur-only",
+    "jpeg_only": "JPEG-only",
+    "resize_only": "Resize-only",
     "mixed": "Mixed-degradation",
     "mixed_full": "Mixed-full",
     "flip_weighted": "Error-weighted",
@@ -21,6 +23,8 @@ METHOD_COLORS = {
     "base": "#4D4D4D",
     "clean_only": "#7B61A8",
     "uniform": "#2E86AB",
+    "jpeg_only": "#E9C46A",
+    "resize_only": "#6A994E",
     "mixed": "#2A9D8F",
     "mixed_full": "#E76F51",
     "flip_weighted": "#F18F01",
@@ -52,15 +56,7 @@ def apply_style() -> None:
 
 def plot_local_accuracy(summary: pd.DataFrame, output: Path) -> None:
     conditions = list(dict.fromkeys(summary["condition"]))
-    methods = [
-        "base",
-        "clean_only",
-        "uniform",
-        "mixed",
-        "mixed_full",
-        "flip_weighted",
-        "flip_hard",
-    ]
+    methods = ["base", "clean_only", "uniform", "jpeg_only", "resize_only", "mixed_full"]
     figure, axis = plt.subplots(figsize=(8.2, 4.3))
     width = 0.18
     for method_index, method in enumerate(methods):
@@ -75,7 +71,7 @@ def plot_local_accuracy(summary: pd.DataFrame, output: Path) -> None:
                 row = selected.iloc[0]
             means.append(100 * row["adapter_local_accuracy_mean"] if method != "base" else 100 * row["base_local_accuracy_mean"])
             errors.append(100 * row["adapter_local_accuracy_std"] if method != "base" else 0)
-        positions = np.arange(len(conditions)) + (method_index - 3.0) * width
+        positions = np.arange(len(conditions)) + (method_index - 2.5) * width
         axis.bar(
             positions,
             means,
@@ -130,15 +126,7 @@ def mask_curves(runs: Path, condition: str) -> pd.DataFrame:
 
 def plot_mask_curves(runs: Path, output: Path) -> None:
     frame = mask_curves(runs, "blur_k9")
-    methods = [
-        "base",
-        "clean_only",
-        "uniform",
-        "mixed",
-        "mixed_full",
-        "flip_weighted",
-        "flip_hard",
-    ]
+    methods = ["base", "clean_only", "uniform", "jpeg_only", "resize_only", "mixed_full"]
     figure, axis = plt.subplots(figsize=(7.6, 3.8))
     mask_labels = None
     for method in methods:
@@ -179,15 +167,11 @@ def plot_mask_curves(runs: Path, output: Path) -> None:
 def plot_recovery_harm(summary: pd.DataFrame, output: Path) -> None:
     selected = summary[
         summary.method.isin(
-            ["clean_only", "uniform", "mixed", "flip_weighted", "flip_hard"]
-            + (["mixed_full"] if "mixed_full" in set(summary.method) else [])
+            ["clean_only", "uniform", "jpeg_only", "resize_only", "mixed_full"]
         )
     ]
     conditions = list(dict.fromkeys(selected.condition))
-    methods = ["clean_only", "uniform", "mixed"]
-    if "mixed_full" in set(summary.method):
-        methods.append("mixed_full")
-    methods.extend(["flip_weighted", "flip_hard"])
+    methods = ["clean_only", "uniform", "jpeg_only", "resize_only", "mixed_full"]
     figure, axes = plt.subplots(1, 2, figsize=(9.2, 3.7), sharey=True)
     width = 0.24
     for method_index, method in enumerate(methods):
@@ -200,7 +184,7 @@ def plot_recovery_harm(summary: pd.DataFrame, output: Path) -> None:
             100 * subset[subset.condition == condition].iloc[0]["harm_rate_mean"]
             for condition in conditions
         ]
-        positions = np.arange(len(conditions)) + (method_index - 2.5) * width
+        positions = np.arange(len(conditions)) + (method_index - 2.0) * width
         axes[0].bar(
             positions, recovery, width, color=METHOD_COLORS[method], label=METHOD_LABELS[method]
         )

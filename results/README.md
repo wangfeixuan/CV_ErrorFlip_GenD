@@ -10,8 +10,9 @@ split and the source-group bootstrap analysis.
 - `bootstrap_all_conditions.csv`: paired video-group bootstrap confidence
   intervals;
 - `k_sweep.csv` and `k_sweep_bootstrap.csv`: training blur-count sensitivity;
-- `aggregate_all_conditions.*`: includes blur-specific, mixed, clean-only,
-  error-weighted, hard-mask, and random-mask sweep results;
+- `aggregate_all_conditions.*`: includes GenD-matched summaries, clean-only,
+  blur-only, JPEG-only, resize-only, mixed, error-weighted, hard-mask, and
+  random-mask sweep results;
 - `figures/`: report-ready comparison, position-sensitivity, and error
   recovery/harm plots.
 

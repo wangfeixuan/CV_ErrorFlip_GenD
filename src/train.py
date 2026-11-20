@@ -27,6 +27,8 @@ def parse_args() -> argparse.Namespace:
         choices=(
             "clean_only",
             "uniform",
+            "jpeg_only",
+            "resize_only",
             "uniform_random",
             "flip_hard",
             "flip_weighted",
@@ -304,7 +306,7 @@ def train(args: argparse.Namespace) -> Path:
                 losses = mask_losses(
                     model, clean[index], blurred[index], labels, train_masks
                 )
-                if args.method == "uniform":
+                if args.method in ("uniform", "jpeg_only", "resize_only"):
                     degraded_loss = losses.mean()
                 elif args.method == "flip_hard":
                     degraded_loss, _ = select_flip_hard_loss(
