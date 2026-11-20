@@ -150,6 +150,7 @@ def evaluate(args: argparse.Namespace) -> dict:
         "feature_file": str(Path(args.features).resolve()),
         "method": checkpoint["method"],
         "seed": int(checkpoint["seed"]),
+        "training_blurred_frames": int(checkpoint.get("blurred_frames", 2)),
         "videos": int(len(selected_index)),
         "threshold": args.threshold,
         "base_clean": clean_metrics,
@@ -170,6 +171,16 @@ def evaluate(args: argparse.Namespace) -> dict:
         "adapter_two_frame_masks": condition_summary(
             labels, adapter_pair, args.threshold
         ),
+        "adapter_by_mask_count": {
+            str(count): condition_summary(
+                labels,
+                adapter_probabilities[
+                    (masks.sum(dim=1) == count).cpu().numpy()
+                ],
+                args.threshold,
+            )
+            for count in range(5)
+        },
         "inversion": {
             "base_error_mask_events": base_error_mask_events,
             "recovered_mask_events": recovered_mask_events,

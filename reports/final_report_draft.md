@@ -29,6 +29,12 @@ fixed. This motivates an error-flip formulation: can a small trainable visual
 extension recover decisions that the original detector loses under sparse
 local degradation?
 
+The primary experiment fixes two blurred frames. This is a problem-driven
+choice: the prior audit found 61 videos with position-dependent decisions
+under exactly two blurred frames, and `k=2` gives six possible positions while
+retaining enough clear visual evidence. It is not assumed to be the optimal
+training budget.
+
 We make three contributions. First, we implement a parameter-efficient visual
 adapter on frozen GenD features. Second, we construct a controlled comparison
 that includes clean-only fine-tuning, uniform mask training, error-weighted
@@ -120,6 +126,12 @@ deterministically generated unseen conditions:
 - JPEG quality 30, decoded and stored as PNG;
 - bicubic resize to 25% of width and height.
 
+We additionally run a mask-count sweep for training `k=1,2,3,4`. Each sample
+draws one mask of the selected count per optimization step. This keeps the
+number of degraded frame exposures and forward steps equal across sweep arms.
+The main `k=2` experiment instead exhaustively averages all six masks and is
+reported separately.
+
 ### Training
 
 We train three seeds (`2026`, `2027`, `2028`) for every method. The optimizer
@@ -200,6 +212,25 @@ Hard-mask training reduces the mean local accuracy but slightly raised some
 worst-position results. Its blur worst-mask accuracy is 86.75%, versus 88.03%
 for uniform and 76.92% for GenD. The adapter reduces position sensitivity,
 but the hard-selection objective does not provide a reliable additional gain.
+
+### Blur-count follow-up
+
+![Mask-count sweep](../results_final/figures/k_sweep.png)
+
+| Trained k | Clean | Test k=1 | Test k=2 | Test k=3 | Test k=4 |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 91.45% | 90.28% | 89.10% | 86.43% | 84.19% |
+| 2 | 91.45% | 89.96% | 89.10% | 87.29% | 83.76% |
+| 3 | **94.02%** | **91.99%** | **89.89%** | **88.03%** | **86.75%** |
+| 4 | 91.88% | 91.03% | 89.81% | **88.03%** | **86.75%** |
+
+Training at `k=3` has the strongest point estimates on blur, while `k=4`
+is close but weaker under unseen JPEG. Relative to random-mask `k=2`,
+training `k=3` is +0.78 points at test `k=2`, with a paired source-group 95%
+interval of [-0.68, 2.78]. Training `k=4` is +0.71 points, with interval
+[-1.54, 3.54]. Neither result supports a claim that another `k` is superior.
+The notable pattern is a graceful decline as the number of test-time degraded
+frames increases.
 
 ## 6. Discussion and Limitations
 

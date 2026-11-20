@@ -44,6 +44,9 @@ def flatten(result: dict) -> dict:
     row = {
         "method": result["method"],
         "condition": result.get("condition", result.get("feature_file", "unknown")),
+        "training_blurred_frames": int(
+            result.get("training_blurred_frames", 2)
+        ),
         "seed": int(result["seed"]),
         "test_videos": int(result["videos"]),
     }
@@ -72,7 +75,14 @@ def main() -> None:
     ]
     if not rows:
         raise FileNotFoundError(f"No */eval_test*.json under {runs}")
-    rows.sort(key=lambda row: (row["condition"], row["method"], row["seed"]))
+    rows.sort(
+        key=lambda row: (
+            row["condition"],
+            row["method"],
+            row["training_blurred_frames"],
+            row["seed"],
+        )
+    )
 
     prefix = Path(args.output_prefix)
     prefix.parent.mkdir(parents=True, exist_ok=True)
@@ -83,14 +93,25 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
 
-    by_method: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    by_method: dict[tuple[str, str, int], list[dict]] = defaultdict(list)
     for row in rows:
-        by_method[(row["condition"], row["method"])].append(row)
+        by_method[
+            (
+                row["condition"],
+                row["method"],
+                row["training_blurred_frames"],
+            )
+        ].append(row)
     summary = []
-    for (condition, method), method_rows in sorted(by_method.items()):
+    for (
+        condition,
+        method,
+        training_blurred_frames,
+    ), method_rows in sorted(by_method.items()):
         aggregate = {
             "condition": condition,
             "method": method,
+            "training_blurred_frames": training_blurred_frames,
             "seeds": len(method_rows),
         }
         for metric in METRICS:
@@ -110,15 +131,16 @@ def main() -> None:
         "",
         f"Evaluation files: `{len(rows)}`; test videos per seed: `{rows[0]['test_videos']}`.",
         "",
-        "| Condition | Method | Seeds | Clean Acc | Clean AUC | Local Acc | Local AUC | Worst Acc | Recovery | Harm | Net recovered masks |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Condition | Method | Train k | Seeds | Clean Acc | Clean AUC | Local Acc | Local AUC | Worst Acc | Recovery | Harm | Net recovered masks |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in summary:
         lines.append(
-            "| {condition} | {method} | {seeds} | {clean_acc} | {clean_auc} | {local_acc} | "
+            "| {condition} | {method} | {train_k} | {seeds} | {clean_acc} | {clean_auc} | {local_acc} | "
             "{local_auc} | {worst} | {recovery} | {harm} | {net:.2f} |".format(
                 condition=row["condition"],
                 method=row["method"],
+                train_k=row["training_blurred_frames"],
                 seeds=row["seeds"],
                 clean_acc=percent(row["adapter_clean_accuracy_mean"]),
                 clean_auc=f"{row['adapter_clean_auc_mean']:.4f}",

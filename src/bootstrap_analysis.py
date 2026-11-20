@@ -28,7 +28,7 @@ def build_arrays(runs: Path) -> tuple[np.ndarray, dict, list[str]]:
     if not files:
         raise FileNotFoundError("No per-video evaluation CSV files")
     observations: dict[
-        tuple[str, str],
+        tuple[str, str, int],
         list[tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]],
     ] = defaultdict(list)
     labels_by_video: dict[str, bool] = {}
@@ -36,6 +36,7 @@ def build_arrays(runs: Path) -> tuple[np.ndarray, dict, list[str]]:
         result_path = path.with_name(path.name.replace(".per_video.csv", ".json"))
         result = json.loads(result_path.read_text(encoding="utf-8"))
         method = result["method"]
+        train_k = int(result.get("training_blurred_frames", 2))
         condition = result.get("condition")
         if not condition:
             condition = (
@@ -87,7 +88,7 @@ def build_arrays(runs: Path) -> tuple[np.ndarray, dict, list[str]]:
             adapter_clean[index] = (
                 (float(row["adapter_probability"]) >= 0.5) == target
             )
-        observations[(condition, method)].append(
+        observations[(condition, method, train_k)].append(
             (int(result["seed"]), base, adapter, base_clean, adapter_clean)
         )
     return observations, labels_by_video, files
@@ -153,27 +154,37 @@ def main() -> None:
     rng = np.random.default_rng(args.seed)
 
     rows = []
-    for (condition, method), entries in sorted(observations.items()):
+    for (condition, method, train_k), entries in sorted(observations.items()):
         entries = sorted(entries)
         if len({len(entry[2]) for entry in entries}) != 1:
             raise ValueError(f"Seed video sets differ for {condition}/{method}")
         base, adapter, base_clean, adapter_clean = averaged_correctness(entries)
-        uniform_entry = observations.get((condition, "uniform"))
+        uniform_entry = observations.get((condition, "uniform", 2))
         if uniform_entry is None:
             raise ValueError(f"Missing uniform baseline for {condition}")
         _, uniform, _, _ = averaged_correctness(sorted(uniform_entry))
         comparisons = {
             "adapter_vs_base_local": adapter - base,
             "adapter_vs_base_clean": adapter_clean - base_clean,
-            "method_vs_uniform_local": adapter - uniform,
         }
+        if method != "uniform_random":
+            comparisons["method_vs_uniform_local"] = adapter - uniform
         if method == "uniform":
-            clean_only_entry = observations.get((condition, "clean_only"))
+            clean_only_entry = observations.get((condition, "clean_only", 2))
             if clean_only_entry is not None:
                 _, clean_only_adapter, _, _ = averaged_correctness(
                     sorted(clean_only_entry)
                 )
                 comparisons["mask_training_vs_clean_only_local"] = (
+                    adapter - clean_only_adapter
+                )
+        if method == "uniform_random":
+            clean_only_entry = observations.get((condition, "clean_only", 2))
+            if clean_only_entry is not None:
+                _, clean_only_adapter, _, _ = averaged_correctness(
+                    sorted(clean_only_entry)
+                )
+                comparisons["random_mask_vs_clean_only_local"] = (
                     adapter - clean_only_adapter
                 )
         for comparison, difference in comparisons.items():
@@ -187,6 +198,7 @@ def main() -> None:
                 {
                     "condition": condition,
                     "method": method,
+                    "train_k": train_k,
                     "comparison": comparison,
                     "difference": point,
                     "ci95_lower": lower,

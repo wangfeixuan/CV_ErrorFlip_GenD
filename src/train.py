@@ -24,7 +24,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--features", required=True)
     parser.add_argument(
         "--method",
-        choices=("clean_only", "uniform", "flip_hard", "flip_weighted"),
+        choices=(
+            "clean_only",
+            "uniform",
+            "uniform_random",
+            "flip_hard",
+            "flip_weighted",
+        ),
         required=True,
     )
     parser.add_argument("--seed", type=int, required=True)
@@ -36,6 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int)
     parser.add_argument("--learning-rate", type=float)
     parser.add_argument("--bottleneck", type=int)
+    parser.add_argument("--blurred-frames", type=int, default=2)
     parser.add_argument("--overwrite", action="store_true")
     return parser.parse_args()
 
@@ -236,7 +243,9 @@ def train(args: argparse.Namespace) -> Path:
         torch.from_numpy(data["base_logits_blur"]), dim=-1
     )[..., 1].to(device)
     base_clean_probability = base_clean_frame_probability.mean(dim=1)
-    train_masks = masks_with_count(4, 2, device=device)
+    if not 0 <= args.blurred_frames <= 4:
+        raise ValueError("--blurred-frames must be between 0 and 4")
+    train_masks = masks_with_count(4, args.blurred_frames, device=device)
     evaluation_masks = masks_with_count(4, 2, device=device)
     base_mask_probability = compose_frame_probabilities(
         base_clean_frame_probability,
@@ -274,6 +283,23 @@ def train(args: argparse.Namespace) -> Path:
             labels = label_index[index].float()
             if args.method == "clean_only":
                 degraded_loss = None
+            elif args.method == "uniform_random":
+                selected = torch.randint(
+                    0,
+                    len(train_masks),
+                    (len(index),),
+                    device=device,
+                )
+                mask = train_masks[selected].to(clean.dtype)
+                composed = (
+                    clean[index] * (1.0 - mask[:, :, None])
+                    + blurred[index] * mask[:, :, None]
+                )
+                _, degraded_probability = model(composed)
+                degraded_loss = torch.nn.functional.binary_cross_entropy(
+                    degraded_probability.clamp(1e-6, 1 - 1e-6),
+                    labels,
+                )
             else:
                 losses = mask_losses(
                     model, clean[index], blurred[index], labels, train_masks
@@ -350,6 +376,7 @@ def train(args: argparse.Namespace) -> Path:
                     "method": args.method,
                     "seed": args.seed,
                     "split_seed": split_seed,
+                    "blurred_frames": args.blurred_frames,
                     "epoch": epoch,
                     "validation": validation,
                     "feature_file": str(Path(args.features).resolve()),
@@ -382,6 +409,7 @@ def train(args: argparse.Namespace) -> Path:
                 "method": args.method,
                 "seed": args.seed,
                 "split_seed": split_seed,
+                "blurred_frames": args.blurred_frames,
                 "best_epoch": best_epoch,
                 "best_validation_loss": best_loss,
                 "feature_file": str(Path(args.features).resolve()),

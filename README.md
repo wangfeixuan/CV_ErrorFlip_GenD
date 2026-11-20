@@ -40,6 +40,21 @@ mask-training effect is directionally positive but not statistically
 conclusive. Error weighting and hard-mask selection do not provide a stable
 additional gain.
 
+### Why k=2 is the primary setting
+
+The primary experiment fixes two blurred frames because the earlier audit
+found 61 videos whose decision changed across exactly two-of-four blur masks,
+and `k=2` provides six position permutations while avoiding the near-global
+information loss of full-video blur. This is a problem-driven choice, not a
+claim that `k=2` is optimal.
+
+As a follow-up, we separately train random-mask adapters with `k=1,2,3,4`
+under the same per-sample mask exposure and optimization budget. On the
+trained blur condition, test-at-`k=2` accuracy is 89.10%, 89.10%, 89.89%, and
+89.81%, respectively. Training at `k=3` or `k=4` is slightly higher than
+`k=2`, but paired source-group intervals include zero. The follow-up supports
+a mask-count sensitivity analysis, not a claim that another `k` is superior.
+
 The final course report is [`reports/CV_ErrorFlip_GenD_Report.pdf`](reports/CV_ErrorFlip_GenD_Report.pdf).
 Aggregate tables and figures are under [`results/`](results/).
 

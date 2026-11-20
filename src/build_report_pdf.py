@@ -182,6 +182,7 @@ def build(args: argparse.Namespace) -> Path:
     figures = Path(args.figures_dir)
     summary = pd.read_csv(results / "aggregate_all_conditions.summary.csv")
     bootstrap = pd.read_csv(results / "bootstrap_all_conditions.csv")
+    k_sweep = pd.read_csv(results / "k_sweep.csv")
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     styles = make_styles()
@@ -233,6 +234,16 @@ def build(args: argparse.Namespace) -> Path:
             "fixed. This creates an error-flip problem: can a lightweight "
             "trainable visual extension recover decisions that GenD loses under "
             "sparse local degradation?",
+            styles["BodyJustified"],
+        )
+    )
+    story.append(
+        Paragraph(
+            "The primary experiment uses exactly two blurred frames because the "
+            "earlier audit found 61 videos with position-dependent decisions at "
+            "this budget. Six position permutations keep enough clear visual "
+            "evidence to study position effects. This is a problem-driven "
+            "choice, not an assumption that k=2 is optimal.",
             styles["BodyJustified"],
         )
     )
@@ -329,7 +340,10 @@ def build(args: argparse.Namespace) -> Path:
             "the clean video but wrong under that mask. Hard-mask training selects "
             "the currently highest-loss eligible mask per video. Every method also "
             "uses a clean-video loss with weight 0.5 and a degraded loss weight of "
-            "1.0. Early stopping selects models only on validation loss.",
+            "1.0. A separate k=1,2,3,4 sweep samples one mask of the selected "
+            "count per training video at each step, keeping per-step mask exposure "
+            "and optimization schedules matched. Early stopping selects models "
+            "only on validation loss.",
             styles["BodyJustified"],
         )
     )
@@ -507,7 +521,58 @@ def build(args: argparse.Namespace) -> Path:
         )
     )
 
-    story.append(Paragraph("5.4 Clean performance and stability", styles["SubHeading"]))
+    story.append(Paragraph("5.4 Blur-count follow-up", styles["SubHeading"]))
+    k_rows = [["Trained k", "Clean", "Test k=1", "Test k=2", "Test k=3", "Test k=4"]]
+    for train_k in (1, 2, 3, 4):
+        values = []
+        for test_k in (0, 1, 2, 3, 4):
+            row = k_sweep[
+                (k_sweep.condition == "blur_k9")
+                & (k_sweep.train_k == train_k)
+                & (k_sweep.test_k == test_k)
+            ].iloc[0]
+            values.append(pct(row.mean_accuracy))
+        k_rows.append([f"k={train_k}", *values])
+    story.append(
+        KeepTogether(
+            [
+                data_table(
+                    k_rows,
+                    [2.4 * cm, 2.7 * cm, 2.7 * cm, 2.7 * cm, 2.7 * cm, 2.7 * cm],
+                ),
+                Paragraph(
+                    "Table 3. Blur-count sweep. Each training arm samples one mask "
+                    "of the specified count per video and step. Values are mean "
+                    "accuracy over three seeds.",
+                    styles["Caption"],
+                ),
+            ]
+        )
+    )
+    story.append(
+        Paragraph(
+            "Training at k=3 has the strongest point estimates on the blur "
+            "condition, while k=4 is close but weaker under unseen JPEG. Relative "
+            "to random-mask k=2, training k=3 is +0.78 points at test k=2, with "
+            "a paired source-group 95% interval of [-0.68, 2.78]. Training k=4 "
+            "is +0.71 points with interval [-1.54, 3.54]. The interval for k=1 "
+            "is [-0.89, 0.78]. These differences do not establish a superior "
+            "training budget. Accuracy declines smoothly as the number of test-"
+            "time blurred frames increases.",
+            styles["BodyJustified"],
+        )
+    )
+    add_figure(
+        story,
+        figures / "k_sweep.png",
+        14.0,
+        "Figure 4. Trained blur budget versus test-time blur count. The diagonal "
+        "trend and cross-budget spread describe mask-count sensitivity, not an "
+        "assumption that k=2 is optimal.",
+        styles,
+    )
+
+    story.append(Paragraph("5.5 Clean performance and stability", styles["SubHeading"]))
     clean_rows = [["Method", "Clean", "Blur local", "JPEG local", "Resize local"]]
     clean_rows.append(["GenD", "85.90%", "83.12%", "88.03%", "88.46%"])
     for method, label in (
@@ -538,7 +603,7 @@ def build(args: argparse.Namespace) -> Path:
                     [3.4 * cm, 3.5 * cm, 3.0 * cm, 3.0 * cm, 3.0 * cm],
                 ),
                 Paragraph(
-                    "Table 3. Clean accuracy and mean local accuracy by test "
+                    "Table 4. Clean accuracy and mean local accuracy by test "
                     "condition. Local values aggregate the six two-frame masks; "
                     "adapter means and standard deviations use three seeds.",
                     styles["Caption"],
@@ -570,7 +635,7 @@ def build(args: argparse.Namespace) -> Path:
         )
     )
 
-    story.append(Paragraph("5.5 Interpretation of the negative result", styles["SubHeading"]))
+    story.append(Paragraph("5.6 Interpretation of the negative result", styles["SubHeading"]))
     story.append(
         Paragraph(
             "Several properties of hard-mask training may explain its lower "
@@ -666,6 +731,7 @@ def build(args: argparse.Namespace) -> Path:
         ["Feature cache", "518 x 4 clean and degraded frame features; GenD logits; model and ZIP hashes"],
         ["Run directory", "Best checkpoint, validation history, fixed split manifest, run metadata"],
         ["Evaluation", "Per-video scores for all 16 masks and JSON aggregate metrics"],
+        ["Mask sweep", "Random-mask adapters for k=1,2,3,4; three seeds and paired intervals"],
         ["Statistics", "Mean and standard deviation over three seeds; source-group bootstrap intervals"],
         ["Figures", "Condition comparison, position sensitivity, and recovery/harm plots"],
     ]
