@@ -10,6 +10,7 @@ import numpy as np
 from .data import assign_group_splits
 from .evaluate import evaluate
 from .train import train
+from .train_mixed import train as train_mixed
 
 
 def build_synthetic_features(path: Path, videos: int = 60, dimension: int = 32) -> None:
@@ -110,6 +111,68 @@ def main() -> None:
             assert result["videos"] > 0
             assert result["adapter_clean"]["auc"] is not None
             print(method, json.dumps(result["inversion"]))
+
+        blur_features = root / "blur.npz"
+        jpeg_features = root / "jpeg.npz"
+        resize_features = root / "resize.npz"
+        for path in (blur_features, jpeg_features, resize_features):
+            build_synthetic_features(path)
+        mixed_checkpoint = train_mixed(
+            Namespace(
+                blur_features=str(blur_features),
+                jpeg_features=str(jpeg_features),
+                resize_features=str(resize_features),
+                type_strategy="random_one",
+                seed=2026,
+                output_dir=str(root / "mixed"),
+                device="cpu",
+                config=str(
+                    Path(__file__).resolve().parents[1]
+                    / "configs"
+                    / "base.yaml"
+                ),
+                epochs=2,
+                patience=2,
+                batch_size=16,
+                learning_rate=0.001,
+                bottleneck=8,
+                overwrite=False,
+            )
+        )
+        mixed_result = evaluate(
+            Namespace(
+                features=str(blur_features),
+                checkpoint=str(mixed_checkpoint),
+                split="test",
+                output=str(root / "mixed" / "eval.json"),
+                device="cpu",
+                threshold=0.5,
+            )
+        )
+        print("mixed", json.dumps(mixed_result["inversion"]))
+        mixed_full_checkpoint = train_mixed(
+            Namespace(
+                blur_features=str(blur_features),
+                jpeg_features=str(jpeg_features),
+                resize_features=str(resize_features),
+                type_strategy="all_types",
+                seed=2026,
+                output_dir=str(root / "mixed_full"),
+                device="cpu",
+                config=str(
+                    Path(__file__).resolve().parents[1]
+                    / "configs"
+                    / "base.yaml"
+                ),
+                epochs=1,
+                patience=1,
+                batch_size=16,
+                learning_rate=0.001,
+                bottleneck=8,
+                overwrite=False,
+            )
+        )
+        assert mixed_full_checkpoint.is_file()
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import (
+    CondPageBreak,
     Image,
     KeepTogether,
     PageBreak,
@@ -260,7 +261,8 @@ def build(args: argparse.Namespace) -> Path:
             "types. The main experimental finding is that adaptation helps, while "
             "harder-position emphasis does not consistently add value. The "
             "clean-only control reveals that most of the gain over GenD comes "
-            "from generic visual fine-tuning.",
+            "from generic visual fine-tuning. A mixed-degradation follow-up also "
+            "does not outperform blur-specific training.",
             styles["BodyJustified"],
         )
     )
@@ -271,7 +273,8 @@ def build(args: argparse.Namespace) -> Path:
             "(2) A clean-only attribution control and a comparison of uniform, "
             "error-weighted, and hard-mask training. (3) Video-level error "
             "recovery, worst-mask, and unseen-degradation analysis, including a "
-            "transparent negative result for error-focused training.",
+            "transparent negative result for error-focused and mixed-degradation "
+            "training.",
             styles["BodyJustified"],
         )
     )
@@ -355,7 +358,7 @@ def build(args: argparse.Namespace) -> Path:
             "340 fake) and four aligned 256x256 face crops per video. The original "
             "and blur-k9 archives contain the same 2,072 paths. A deterministic "
             "group split produces 362 training videos (124 real, 238 fake), 78 "
-            "validation videos (27 real, 51 fake), and 78 test videos. All twelve "
+            "validation videos (27 real, 51 fake), and 78 test videos. All experiment "
             "runs use the same split manifest hash. No video crosses splits, and "
             "videos generated from the same source identity pair remain together.",
             styles["BodyJustified"],
@@ -372,6 +375,15 @@ def build(args: argparse.Namespace) -> Path:
             "errors, and newly introduced errors. The 16 masks are repeated "
             "measurements of the same videos, so confidence intervals are "
             "bootstrapped over the 52 held-out source groups.",
+            styles["BodyJustified"],
+        )
+    )
+    story.append(
+        Paragraph(
+            "The mixed-degradation follow-up keeps the same features and split. "
+            "The low-cost arm samples one of blur, JPEG or resize per video and "
+            "step. The full arm evaluates all three types in every step, giving "
+            "each type the complete training set.",
             styles["BodyJustified"],
         )
     )
@@ -572,7 +584,70 @@ def build(args: argparse.Namespace) -> Path:
         styles,
     )
 
-    story.append(Paragraph("5.5 Clean performance and stability", styles["SubHeading"]))
+    story.append(Paragraph("5.5 Mixed-degradation follow-up", styles["SubHeading"]))
+    mixed_rows = [["Adapter training", "Clean", "Blur local", "JPEG local", "Resize local"]]
+    for method, label in (
+        ("uniform", "Blur-specific"),
+        ("mixed", "Mixed, one type/step"),
+        ("mixed_full", "Mixed, all types/step"),
+    ):
+        selected = summary[summary.method == method]
+        values = [
+            pct(selected[selected.condition == condition].iloc[0].adapter_local_accuracy_mean)
+            for condition in ("blur_k9", "jpeg_q30", "resize_25")
+        ]
+        clean_value = selected.iloc[0].adapter_clean_accuracy_mean
+        mixed_rows.append([label, pct(clean_value), *values])
+    story.append(
+        KeepTogether(
+            [
+                data_table(
+                    mixed_rows,
+                    [4.7 * cm, 2.7 * cm, 2.9 * cm, 2.9 * cm, 2.9 * cm],
+                ),
+                Paragraph(
+                    "Table 4. Multi-degradation training comparison. The low-cost "
+                    "arm samples one type per video and step; the full arm trains "
+                    "on blur, JPEG and resize in every step.",
+                    styles["Caption"],
+                ),
+            ]
+        )
+    )
+    story.append(
+        Paragraph(
+            "Neither mixed strategy exceeds blur-specific training on any tested "
+            "condition. Mixed one-type reaches 88.89%, 91.03% and 90.46% on blur, "
+            "JPEG and resize, versus 90.38%, 92.59% and 91.31% for blur-specific "
+            "training. Mixed all-types is lower again and drops clean accuracy to "
+            "90.60%. The negative result indicates that with this data and small "
+            "adapter, balancing three objectives produces a conservative compromise "
+            "rather than complementary robustness.",
+            styles["BodyJustified"],
+        )
+    )
+    story.append(
+        Paragraph(
+            "Paired source-group intervals confirm the direction. The one-type "
+            "mixed arm is -1.50 points versus blur-specific on blur "
+            "[-3.33, 0.00], -1.57 on JPEG [-6.93, 2.70], and -0.85 on resize "
+            "[-2.32, 0.41]. The all-types arm is -1.85 on blur "
+            "[-3.61, -0.40], -2.49 on JPEG [-8.37, 2.21], and -1.71 on resize "
+            "[-3.80, 0.07]. Multi-degradation training is therefore not supported.",
+            styles["BodyJustified"],
+        )
+    )
+    add_figure(
+        story,
+        figures / "recovery_and_harm.png",
+        15.5,
+        "Figure 5. Error recovery and harms including mixed variants. Multi-"
+        "degradation training does not improve the net recovery profile.",
+        styles,
+    )
+
+    story.append(CondPageBreak(8 * cm))
+    story.append(Paragraph("5.6 Clean performance and stability", styles["SubHeading"]))
     clean_rows = [["Method", "Clean", "Blur local", "JPEG local", "Resize local"]]
     clean_rows.append(["GenD", "85.90%", "83.12%", "88.03%", "88.46%"])
     for method, label in (
@@ -603,7 +678,7 @@ def build(args: argparse.Namespace) -> Path:
                     [3.4 * cm, 3.5 * cm, 3.0 * cm, 3.0 * cm, 3.0 * cm],
                 ),
                 Paragraph(
-                    "Table 4. Clean accuracy and mean local accuracy by test "
+                    "Table 5. Clean accuracy and mean local accuracy by test "
                     "condition. Local values aggregate the six two-frame masks; "
                     "adapter means and standard deviations use three seeds.",
                     styles["Caption"],
@@ -635,7 +710,7 @@ def build(args: argparse.Namespace) -> Path:
         )
     )
 
-    story.append(Paragraph("5.6 Interpretation of the negative result", styles["SubHeading"]))
+    story.append(Paragraph("5.7 Interpretation of the negative results", styles["SubHeading"]))
     story.append(
         Paragraph(
             "Several properties of hard-mask training may explain its lower "
@@ -671,8 +746,9 @@ def build(args: argparse.Namespace) -> Path:
             "GenD on trained blur. Local-mask training contributes 1.50 further "
             "points, but its interval crosses zero. The experiment also does not "
             "support error weighting or hard-position emphasis as superior "
-            "training rules. A performance improvement over GenD alone would be "
-            "insufficient evidence for either mechanism.",
+            "training rules. Neither mixed-degradation strategy improves over "
+            "blur-specific training, so a performance improvement over GenD alone "
+            "would not justify the added complexity.",
             styles["BodyJustified"],
         )
     )
@@ -707,7 +783,8 @@ def build(args: argparse.Namespace) -> Path:
             "shows that most of this gain is generic visual fine-tuning. Local-"
             "mask training adds a modest and statistically inconclusive increment, "
             "while error-flip and hardest-position emphasis do not improve over "
-            "uniform training across all two-frame masks.",
+            "uniform training across all two-frame masks. Mixed-degradation "
+            "training likewise provides no tested benefit.",
             styles["BodyJustified"],
         )
     )
@@ -732,6 +809,7 @@ def build(args: argparse.Namespace) -> Path:
         ["Run directory", "Best checkpoint, validation history, fixed split manifest, run metadata"],
         ["Evaluation", "Per-video scores for all 16 masks and JSON aggregate metrics"],
         ["Mask sweep", "Random-mask adapters for k=1,2,3,4; three seeds and paired intervals"],
+        ["Mixed study", "Blur+JPEG+resize adapters in low-cost and full-exposure arms"],
         ["Statistics", "Mean and standard deviation over three seeds; source-group bootstrap intervals"],
         ["Figures", "Condition comparison, position sensitivity, and recovery/harm plots"],
     ]
@@ -740,7 +818,7 @@ def build(args: argparse.Namespace) -> Path:
             [
                 data_table(artifact_rows, [3.5 * cm, 12.5 * cm]),
                 Paragraph(
-                    "Table 4. Main reproducibility artifacts. Checkpoint files are "
+                    "Table 6. Main reproducibility artifacts. Checkpoint files are "
                     "stored per method and seed; the original GenD model is not "
                     "modified.",
                     styles["Caption"],
@@ -763,7 +841,7 @@ def build(args: argparse.Namespace) -> Path:
     story.append(
         Paragraph(
             "The split is generated once from the fixed configuration seed and "
-            "written to every run. A SHA256 comparison of all twelve manifests "
+            "written to every run. A SHA256 comparison of all experiment manifests "
             "produced one unique digest, verifying that the model seeds changed "
             "while the data partition did not. Early stopping uses only the 78 "
             "validation videos. The 78 test videos are read only during final "

@@ -16,7 +16,8 @@ adds 1.50 points on blur, with a source-group 95% interval of [-0.15, 3.43].
 Error-focused weighting and hard-mask selection do not stably outperform
 uniform mask training. The supported conclusion is that lightweight visual
 adaptation improves performance, while the independent benefit of sparse
-mask training is modest and not yet conclusive.
+mask training is modest and not yet conclusive. Mixed blur/JPEG/resize
+training also does not outperform blur-specific adaptation.
 
 ## 1. Introduction
 
@@ -40,8 +41,9 @@ adapter on frozen GenD features. Second, we construct a controlled comparison
 that includes clean-only fine-tuning, uniform mask training, error-weighted
 training, and hard-mask training under the same architecture and split. Third,
 we evaluate video-level errors, worst-mask performance, and two degradation
-types not used for training. We report both the independent contribution of
-local-mask supervision and the negative result for error-specific weighting.
+types not used for training. We report the independent contribution of
+local-mask supervision, the negative result for error-specific weighting, and
+the negative result for multi-degradation training.
 
 ## 2. Related Work
 
@@ -114,7 +116,7 @@ banks contain the same 2,072 paths.
 
 The deterministic split contains 362 training videos (124 real, 238 fake),
 78 validation videos (27 real, 51 fake), and 78 test videos (27 real, 51 fake).
-All twelve runs use the same split manifest hash. A group contains the exact
+All experiment runs use the same split manifest hash. A group contains the exact
 video and all files generated from the same synthetic identity pair. No video
 or group crosses splits.
 
@@ -131,6 +133,10 @@ draws one mask of the selected count per optimization step. This keeps the
 number of degraded frame exposures and forward steps equal across sweep arms.
 The main `k=2` experiment instead exhaustively averages all six masks and is
 reported separately.
+
+For mixed-degradation training, one arm samples one of blur, JPEG or resize
+per video and step. A higher-exposure arm evaluates all three degradation
+types in every step. Both use the same clean data, split, adapter and optimizer.
 
 ### Training
 
@@ -232,6 +238,27 @@ interval of [-0.68, 2.78]. Training `k=4` is +0.71 points, with interval
 The notable pattern is a graceful decline as the number of test-time degraded
 frames increases.
 
+### Multi-degradation follow-up
+
+| Adapter training | Clean | Blur local | JPEG local | Resize local |
+|---|---:|---:|---:|---:|
+| Blur-specific | 93.59% | **90.38%** | **92.59%** | **91.31%** |
+| Mixed, one type/step | 93.16% | 88.89% | 91.03% | 90.46% |
+| Mixed, all types/step | 90.60% | 88.53% | 90.10% | 89.60% |
+
+Neither mixed strategy improves any tested condition. Mixed one-type is about
+1.5 points below blur-specific on blur and JPEG, and 0.85 points below on
+resize. The higher-exposure mixed arm is lower again and also reduces clean
+accuracy by about 3 points. With this data and one small adapter, balancing
+three degradation objectives yields a conservative compromise rather than
+complementary robustness. The mixed variants remain useful negative controls.
+
+Paired source-group intervals confirm the direction. The one-type mixed arm
+is -1.50 points versus blur-specific on blur [-3.33, 0.00], -1.57 on JPEG
+[-6.93, 2.70], and -0.85 on resize [-2.32, 0.41]. The all-types arm is -1.85
+on blur [-3.61, -0.40], -2.49 on JPEG [-8.37, 2.21], and -1.71 on resize
+[-3.80, 0.07]. Multi-degradation training is therefore not supported.
+
 ## 6. Discussion and Limitations
 
 The strongest supported intervention is visual adaptation itself. Clean-only
@@ -240,6 +267,8 @@ blur. Local-mask training contributes an additional 1.50 points. The data do
 not support a claim that error weighting or hard-position selection is a
 superior training rule. This is still a useful result: it separates generic
 fine-tuning, local-mask supervision, and error-selection heuristics.
+Mixed-degradation training also fails to improve the tested conditions,
+supporting the decision to keep blur-specific training as the main method.
 
 Hard-mask selection may be unstable for three reasons: the selected mask can
 change as the adapter updates, the hardest current mask may emphasize label
@@ -268,7 +297,7 @@ visual fine-tuning. Local-mask training adds a modest, directionally positive
 but statistically inconclusive increment, while rare error-flip position
 selection does not consistently improve over uniform masks. A fair Track 2
 contribution is therefore the controlled attribution analysis, including the
-negative result for harder-position emphasis.
+negative results for harder-position emphasis and multi-degradation training.
 
 ## Reproducibility
 
@@ -281,7 +310,7 @@ stored in this project. The server workspace is
 
 - The feature cache stores clean/degraded features, logits, head weights,
   labels, source groups, and source-archive hashes.
-- All nine fixed-split manifests have one identical SHA256 digest.
+- All fixed-split manifests have one identical SHA256 digest.
 - Every checkpoint is accompanied by validation history, test JSON, and
   per-video/per-mask predictions.
 - Source-group bootstrap resamples the 52 held-out groups, not masks.

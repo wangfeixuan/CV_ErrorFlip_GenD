@@ -55,6 +55,22 @@ trained blur condition, test-at-`k=2` accuracy is 89.10%, 89.10%, 89.89%, and
 `k=2`, but paired source-group intervals include zero. The follow-up supports
 a mask-count sensitivity analysis, not a claim that another `k` is superior.
 
+### Mixed-degradation follow-up
+
+We also train a unified adapter on blur, JPEG q30, and resize 25%. The
+low-cost arm chooses one type per sample and step; the full-exposure arm
+evaluates all three types in every step. Neither improves a tested condition.
+
+| Adapter training | Clean | Blur | JPEG | Resize |
+|---|---:|---:|---:|---:|
+| Blur-specific | 93.59% | **90.38%** | **92.59%** | **91.31%** |
+| Mixed, one type | 93.16% | 88.89% | 91.03% | 90.46% |
+| Mixed, all types | 90.60% | 88.53% | 90.10% | 89.60% |
+
+The mixed variants are retained as negative controls. With this data size and
+one small adapter, balancing three degradation objectives creates a
+conservative compromise rather than complementary robustness.
+
 The final course report is [`reports/CV_ErrorFlip_GenD_Report.pdf`](reports/CV_ErrorFlip_GenD_Report.pdf).
 Aggregate tables and figures are under [`results/`](results/).
 
