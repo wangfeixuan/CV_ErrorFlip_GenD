@@ -64,9 +64,13 @@ class GenDAdapter(nn.Module):
             model.head.bias.copy_(bias)
         return model
 
-    def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, features: torch.Tensor, return_features: bool = False
+    ) -> tuple[torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         adapted = self.adapter(features)
         logits = self.head(adapted)
         probabilities = logits.softmax(dim=-1)[..., 1]
         video_probability = probabilities.mean(dim=-1)
+        if return_features:
+            return logits, video_probability, adapted
         return logits, video_probability

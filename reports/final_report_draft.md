@@ -18,7 +18,9 @@ uniform mask training. The supported conclusion is that lightweight visual
 adaptation improves performance, while the independent benefit of sparse
 mask training is modest and not yet conclusive. Mixed blur/JPEG/resize
 training, mask-consistency regularization, and static expert-weight tuning
-also do not outperform blur-specific adaptation.
+also do not outperform blur-specific adaptation. Feature restoration increases
+clean-feature similarity but harms blur accuracy, revealing a fidelity-versus-
+discriminability trade-off.
 
 ## 1. Introduction
 
@@ -239,7 +241,7 @@ interval of [-0.68, 2.78]. Training `k=4` is +0.71 points, with interval
 The notable pattern is a graceful decline as the number of test-time degraded
 frames increases.
 
-### Specialist, mixed and consistency adapters
+### Specialist and additional adapters
 
 | Method | Clean | Blur local | JPEG local | Resize local |
 |---|---:|---:|---:|---:|
@@ -247,6 +249,7 @@ frames increases.
 | Clean-only | 91.88% | 88.89% | 91.88% | 91.17% |
 | Blur-only | **93.59%** | 90.38% | **92.59%** | **91.31%** |
 | Mask-consistency | 92.74% | 89.89% | 92.74% | 91.38% |
+| Feature-restore | 93.16% | 89.67% | 91.95% | 92.59% |
 | JPEG-only | 92.74% | **90.81%** | 91.31% | 91.45% |
 | Resize-only | **93.59%** | 89.25% | 93.02% | 90.31% |
 | Mixed-all | 90.60% | 88.53% | 90.10% | 89.60% |
@@ -265,6 +268,14 @@ points on blur; the paired source-group interval for that loss is
 [-0.94, -0.14]. Its blur worst-mask accuracy is 86.75%, versus 88.03% for
 Blur-only. Enforcing agreement across masks can suppress useful variation as
 well as harmful flips.
+
+Feature restoration raises paired clean/degraded cosine similarity from about
+0.51 to 0.77, compared with 0.71 for task-only adaptation. This confirms that
+the objective changes the visual representation as intended. However, blur
+accuracy falls from 90.38% to 89.67%, and worst-mask accuracy falls from
+88.03% to 82.48%. Restoration improves resize to 92.59%, but lowers JPEG to
+91.95%. The likely trade-off is that moving features toward their clean
+counterparts also removes information useful for blur classification.
 
 ### Static specialist ensemble
 
@@ -324,6 +335,8 @@ but statistically inconclusive increment, while rare error-flip position
 selection does not consistently improve over uniform masks. A fair Track 2
 contribution is therefore the controlled attribution analysis, including the
 negative results for harder-position emphasis and multi-degradation training.
+Feature restoration is a mechanistic negative result: it improves feature
+fidelity but removes information useful for blur classification.
 
 ## Reproducibility
 

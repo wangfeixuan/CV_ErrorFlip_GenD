@@ -28,6 +28,7 @@ def parse_args() -> argparse.Namespace:
             "clean_only",
             "uniform",
             "consistency",
+            "restore",
             "jpeg_only",
             "resize_only",
             "uniform_random",
@@ -298,6 +299,7 @@ def train(args: argparse.Namespace) -> Path:
             index = train_indices[start : start + int(training["batch_size"])]
             labels = label_index[index].float()
             consistency_loss = None
+            restoration_loss = None
             if args.method == "clean_only":
                 degraded_loss = None
             elif args.method == "uniform_random":
@@ -327,6 +329,32 @@ def train(args: argparse.Namespace) -> Path:
                     degraded_loss = losses.mean()
                     consistency_loss = mask_probabilities.var(
                         dim=0, unbiased=False
+                    ).mean()
+                elif args.method == "restore":
+                    composed = compose_masks(
+                        clean[index], blurred[index], train_masks
+                    )
+                    flat = composed.reshape(
+                        -1, composed.shape[-2], composed.shape[-1]
+                    )
+                    _, degraded_probability, adapted_features = model(
+                        flat, return_features=True
+                    )
+                    degraded_loss = torch.nn.functional.binary_cross_entropy(
+                        degraded_probability.clamp(1e-6, 1 - 1e-6),
+                        labels.repeat(len(train_masks)),
+                    )
+                    clean_target = (
+                        clean[index]
+                        .unsqueeze(0)
+                        .expand(len(train_masks), -1, -1, -1)
+                        .reshape(-1, clean.shape[-2], clean.shape[-1])
+                    )
+                    restoration_loss = (
+                        1.0
+                        - torch.nn.functional.cosine_similarity(
+                            adapted_features, clean_target, dim=-1
+                        )
                     ).mean()
                 elif args.method == "flip_hard":
                     degraded_loss, _ = select_flip_hard_loss(
@@ -363,6 +391,8 @@ def train(args: argparse.Namespace) -> Path:
                 )
                 if consistency_loss is not None:
                     loss = loss + float(training["consistency_weight"]) * consistency_loss
+                if restoration_loss is not None:
+                    loss = loss + float(training["restoration_weight"]) * restoration_loss
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(

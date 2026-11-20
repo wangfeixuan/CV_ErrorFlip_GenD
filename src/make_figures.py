@@ -13,6 +13,7 @@ METHOD_LABELS = {
     "clean_only": "Clean-only",
     "uniform": "Blur-only",
     "consistency": "Mask-consistency",
+    "restore": "Feature-restore",
     "jpeg_only": "JPEG-only",
     "resize_only": "Resize-only",
     "mixed": "Mixed-degradation",
@@ -25,6 +26,7 @@ METHOD_COLORS = {
     "clean_only": "#7B61A8",
     "uniform": "#2E86AB",
     "consistency": "#D1495B",
+    "restore": "#8E44AD",
     "jpeg_only": "#E9C46A",
     "resize_only": "#6A994E",
     "mixed": "#2A9D8F",
@@ -63,6 +65,7 @@ def plot_local_accuracy(summary: pd.DataFrame, output: Path) -> None:
         "clean_only",
         "uniform",
         "consistency",
+        "restore",
         "jpeg_only",
         "resize_only",
         "mixed_full",
@@ -81,7 +84,7 @@ def plot_local_accuracy(summary: pd.DataFrame, output: Path) -> None:
                 row = selected.iloc[0]
             means.append(100 * row["adapter_local_accuracy_mean"] if method != "base" else 100 * row["base_local_accuracy_mean"])
             errors.append(100 * row["adapter_local_accuracy_std"] if method != "base" else 0)
-        positions = np.arange(len(conditions)) + (method_index - 3.0) * width
+        positions = np.arange(len(conditions)) + (method_index - 3.5) * width
         axis.bar(
             positions,
             means,
@@ -141,6 +144,7 @@ def plot_mask_curves(runs: Path, output: Path) -> None:
         "clean_only",
         "uniform",
         "consistency",
+        "restore",
         "jpeg_only",
         "resize_only",
         "mixed_full",
@@ -189,6 +193,7 @@ def plot_recovery_harm(summary: pd.DataFrame, output: Path) -> None:
                 "clean_only",
                 "uniform",
                 "consistency",
+                "restore",
                 "jpeg_only",
                 "resize_only",
                 "mixed_full",
@@ -200,6 +205,7 @@ def plot_recovery_harm(summary: pd.DataFrame, output: Path) -> None:
         "clean_only",
         "uniform",
         "consistency",
+        "restore",
         "jpeg_only",
         "resize_only",
         "mixed_full",
@@ -216,7 +222,7 @@ def plot_recovery_harm(summary: pd.DataFrame, output: Path) -> None:
             100 * subset[subset.condition == condition].iloc[0]["harm_rate_mean"]
             for condition in conditions
         ]
-        positions = np.arange(len(conditions)) + (method_index - 2.5) * width
+        positions = np.arange(len(conditions)) + (method_index - 3.0) * width
         axes[0].bar(
             positions, recovery, width, color=METHOD_COLORS[method], label=METHOD_LABELS[method]
         )

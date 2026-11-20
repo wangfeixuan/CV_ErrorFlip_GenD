@@ -48,6 +48,33 @@ def predictions_for_masks(
     return np.stack(probabilities)
 
 
+@torch.inference_mode()
+def feature_restoration_metrics(
+    model: GenDAdapter,
+    clean: torch.Tensor,
+    blurred: torch.Tensor,
+    masks: torch.Tensor,
+) -> dict:
+    raw_cosine = torch.nn.functional.cosine_similarity(
+        blurred, clean, dim=-1
+    ).mean()
+    adapted_cosines = []
+    for mask in masks:
+        composed = compose_masks(clean, blurred, mask[None])[0]
+        _, _, adapted = model(composed, return_features=True)
+        adapted_cosines.append(
+            torch.nn.functional.cosine_similarity(
+                adapted, clean, dim=-1
+            ).mean()
+        )
+    adapted_cosine = torch.stack(adapted_cosines).mean()
+    return {
+        "raw_blur_cosine": float(raw_cosine),
+        "adapted_masked_cosine": float(adapted_cosine),
+        "cosine_improvement": float(adapted_cosine - raw_cosine),
+    }
+
+
 def condition_summary(
     labels: np.ndarray,
     probabilities: np.ndarray,
@@ -201,6 +228,9 @@ def evaluate(args: argparse.Namespace) -> dict:
                 np.sum(base_flipped_video & any_recovered_video)
             ),
         },
+        "feature_restoration": feature_restoration_metrics(
+            model, clean, blurred, masks
+        ),
     }
 
     output = Path(args.output)

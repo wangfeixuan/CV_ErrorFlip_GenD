@@ -23,3 +23,4 @@ bash scripts/run_mixed_full.sh
 bash scripts/run_single_degradations.sh
 bash scripts/run_ensemble_search.sh
 bash scripts/run_consistency_adapter.sh
+bash scripts/run_restoration_adapter.sh

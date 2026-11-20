@@ -225,7 +225,9 @@ def build(args: argparse.Namespace) -> Path:
             "therefore generic visual adaptation, while sparse mask supervision "
             "has a modest and statistically inconclusive increment. Mask-"
             "consistency regularization, mixed-degradation training and static "
-            "expert-weight tuning do not improve the blur-specific adapter.",
+            "expert-weight tuning do not improve the blur-specific adapter. "
+            "Feature restoration increases clean-feature similarity but harms "
+            "blur accuracy, revealing a fidelity-versus-discriminability trade-off.",
             styles["Abstract"],
         )
     )
@@ -594,7 +596,7 @@ def build(args: argparse.Namespace) -> Path:
 
     story.append(
         Paragraph(
-            "5.5 Specialist, mixed and consistency adapters",
+            "5.5 Specialist and additional adapters",
             styles["SubHeading"],
         )
     )
@@ -604,6 +606,7 @@ def build(args: argparse.Namespace) -> Path:
         ("clean_only", "Clean-only"),
         ("uniform", "Blur-only"),
         ("consistency", "Mask-consistency"),
+        ("restore", "Feature-restore"),
         ("jpeg_only", "JPEG-only"),
         ("resize_only", "Resize-only"),
         ("mixed_full", "Mixed-all"),
@@ -661,6 +664,19 @@ def build(args: argparse.Namespace) -> Path:
             "resize. With this data and small adapter, balancing the objectives "
             "produces a conservative compromise rather than complementary "
             "robustness.",
+            styles["BodyJustified"],
+        )
+    )
+    story.append(
+        Paragraph(
+            "Feature restoration does increase similarity to the paired clean "
+            "GenD features: from a raw blur cosine of 0.51 to 0.77 after "
+            "adaptation, versus about 0.71 for the task-only adapter. However, "
+            "restoration lowers blur accuracy from 90.38% to 89.67% and "
+            "worst-mask accuracy from 88.03% to 82.48%. It improves resize to "
+            "92.59% but lowers JPEG to 91.95%. The restoration objective is "
+            "active, but moving features toward the clean reference also removes "
+            "blur-condition information useful for classification.",
             styles["BodyJustified"],
         )
     )
@@ -841,7 +857,9 @@ def build(args: argparse.Namespace) -> Path:
             "mask training adds a modest and statistically inconclusive increment, "
             "while error-flip and hardest-position emphasis do not improve over "
             "uniform training across all two-frame masks. Mixed-degradation "
-            "training likewise provides no tested benefit.",
+            "training and static expert weighting likewise provide no tested "
+            "benefit. Feature restoration increases feature fidelity but loses "
+            "blur-discriminative information.",
             styles["BodyJustified"],
         )
     )

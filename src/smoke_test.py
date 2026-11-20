@@ -73,6 +73,7 @@ def main() -> None:
             "clean_only",
             "uniform",
             "consistency",
+            "restore",
             "jpeg_only",
             "resize_only",
             "uniform_random",

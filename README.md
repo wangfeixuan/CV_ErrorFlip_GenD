@@ -81,6 +81,7 @@ The primary comparison now includes individual JPEG and resize adapters:
 | Clean-only | 91.88% | 88.89% | 91.88% | 91.17% |
 | Blur-only | **93.59%** | 90.38% | **92.59%** | **91.31%** |
 | Mask-consistency | 92.74% | 89.89% | 92.74% | 91.38% |
+| Feature-restore | 93.16% | 89.67% | 91.95% | 92.59% |
 | JPEG-only | 92.74% | **90.81%** | 91.31% | 91.45% |
 | Resize-only | **93.59%** | 89.25% | 93.02% | 90.31% |
 | Mixed-all | 90.60% | 88.53% | 90.10% | 89.60% |
@@ -93,6 +94,12 @@ Mask-consistency adds a variance penalty across the six blur-position
 predictions. It loses 0.49 points on blur and 1.28 points in worst-mask
 accuracy relative to Blur-only, while gaining only 0.14 on JPEG and 0.07 on
 resize. The consistency objective remains a negative result.
+
+Feature restoration increases paired clean/degraded cosine similarity from
+0.51 to 0.77, versus about 0.71 for task-only adaptation. Despite the higher
+feature fidelity, blur accuracy and worst-mask accuracy decline. The result
+shows a trade-off between restoring clean features and retaining information
+needed for blur-condition classification.
 
 ### Static weight tuning
 

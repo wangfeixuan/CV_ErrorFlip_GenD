@@ -12,6 +12,8 @@ split and the source-group bootstrap analysis.
 - `k_sweep.csv` and `k_sweep_bootstrap.csv`: training blur-count sensitivity;
 - `ensemble_weight_search_*`: validation-only static expert-weight sweep and
   frozen test result;
+- `restoration_analysis.csv`: clean-feature cosine similarity before and after
+  task-only versus restoration adaptation;
 - `aggregate_all_conditions.*`: includes GenD-matched summaries, clean-only,
   blur-only, JPEG-only, resize-only, mixed, error-weighted, hard-mask, and
   mask-consistency, and random-mask sweep results;
