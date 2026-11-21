@@ -32,6 +32,28 @@ Celeb-DF test set contains only 78 videos and 52 groups. The point estimates
 are consistently positive across all tested degradations, but the blur and
 JPEG intervals still include zero.
 
+## DFDC addition is not a free improvement
+
+The gain is relative to frozen GenD and to the failed DFDC-only adapter. It is
+not a gain over training on Celeb-DF alone. Holding the method fixed to
+`uniform`, adding DFDC changes the Celeb-DF test result as follows:
+
+| Condition | Celeb-DF-only | Celeb-DF + DFDC | DFDC effect |
+|---|---:|---:|---:|
+| Clean | **93.59%** | 91.03% | -2.56 |
+| Blur k9 | **90.38%** | 88.82% | -1.57 |
+| JPEG q30 | **92.59%** | 90.60% | -1.99 |
+| Resize 25% | **91.31%** | 90.95% | -0.36 |
+
+Therefore, the current experiment does not establish that DFDC data provides
+an independent accuracy benefit. Joint training recovers most of the severe
+zero-shot negative transfer caused by DFDC, but remains slightly worse than the
+target-domain-only Adapter on the target-domain test.
+
+The scientific result should be stated as a data-composition and negative
+transfer finding, not as "adding more data improves the model." A method claim
+would require a domain-invariance component to beat the Celeb-DF-only control.
+
 ## Mask-training contribution
 
 On Celeb-DF held-out test, Uniform mask training exceeds Clean-only by:
