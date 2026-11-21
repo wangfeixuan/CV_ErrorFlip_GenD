@@ -94,6 +94,45 @@ def paired_zip_indexes(
     return records
 
 
+def apply_group_manifest(
+    records: list[dict],
+    manifest_path: str | Path,
+) -> list[dict]:
+    """Replace inferred source groups with audited groups from a CSV manifest."""
+    path = Path(manifest_path)
+    with path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    if not rows:
+        raise ValueError(f"Group manifest is empty: {path}")
+    required = {"video_id", "label", "group_id"}
+    missing = required - set(rows[0])
+    if missing:
+        raise ValueError(f"Group manifest is missing columns: {sorted(missing)}")
+
+    overrides: dict[tuple[str, str], str] = {}
+    for row in rows:
+        key = (row["label"].strip().lower(), row["video_id"].strip())
+        group_id = row["group_id"].strip()
+        if not group_id:
+            raise ValueError(f"Empty group_id for {key}")
+        previous = overrides.setdefault(key, group_id)
+        if previous != group_id:
+            raise ValueError(f"Conflicting group_id values for {key}")
+
+    record_keys = {(record["label"], record["video_id"]) for record in records}
+    missing_keys = sorted(record_keys - set(overrides))
+    extra_keys = sorted(set(overrides) - record_keys)
+    if missing_keys or extra_keys:
+        raise ValueError(
+            "Group manifest/video mismatch: "
+            f"missing={missing_keys[:3]}, extra={extra_keys[:3]}"
+        )
+    return [
+        {**record, "group_id": overrides[(record["label"], record["video_id"])]}
+        for record in records
+    ]
+
+
 def _take_groups(
     groups: list[list[dict]], target: int, rng: random.Random
 ) -> tuple[list[list[dict]], list[list[dict]]]:
@@ -120,6 +159,36 @@ def assign_group_splits(
     ratio_sum = sum(ratios.values())
     if abs(ratio_sum - 1.0) > 1e-6:
         raise ValueError(f"Split ratios must sum to one, got {ratio_sum}")
+
+    groups_by_id: dict[str, list[dict]] = defaultdict(list)
+    labels_by_group: dict[str, set[str]] = defaultdict(set)
+    for record in records:
+        groups_by_id[record["group_id"]].append(record)
+        labels_by_group[record["group_id"]].add(record["label"])
+
+    # DFDC links a real source and all derived fakes through the same group ID.
+    # Such groups cannot be independently stratified by label or they leak.
+    if any(len(labels) > 1 for labels in labels_by_group.values()):
+        candidates = list(groups_by_id.values())
+        rng = random.Random(f"{seed}:source-groups")
+        rng.shuffle(candidates)
+        n = len(records)
+        validation_groups, remain = _take_groups(
+            candidates, int(round(n * ratios["validation"])), rng
+        )
+        test_groups, train_groups = _take_groups(
+            remain, int(round(n * ratios["test"])), rng
+        )
+        assignments = {
+            "train": train_groups,
+            "validation": validation_groups,
+            "test": test_groups,
+        }
+        for split, selected_groups in assignments.items():
+            for selected_group in selected_groups:
+                for record in selected_group:
+                    record["split"] = split
+        return sorted(records, key=lambda r: (r["label"], r["video_id"]))
 
     grouped_by_label: dict[str, dict[str, list[dict]]] = defaultdict(
         lambda: defaultdict(list)

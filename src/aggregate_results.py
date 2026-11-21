@@ -37,6 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--runs-dir", required=True)
     parser.add_argument("--output-prefix", required=True)
+    parser.add_argument("--glob", default="*/eval_test*.json")
     return parser.parse_args()
 
 
@@ -71,10 +72,10 @@ def main() -> None:
     runs = Path(args.runs_dir)
     rows = [
         flatten(json.loads(path.read_text(encoding="utf-8")))
-        for path in sorted(runs.glob("*/eval_test*.json"))
+        for path in sorted(runs.glob(args.glob))
     ]
     if not rows:
-        raise FileNotFoundError(f"No */eval_test*.json under {runs}")
+        raise FileNotFoundError(f"No {args.glob} files under {runs}")
     rows.sort(
         key=lambda row: (
             row["condition"],
@@ -155,7 +156,7 @@ def main() -> None:
     lines.extend(
         [
             "",
-            "Results are test-split summaries after seed-level early stopping on validation.",
+            "Results are summaries of the evaluation files selected by --glob.",
             "The 16 masks are repeated measurements of the same videos, not independent samples.",
             "Use the per-seed table and paired differences for the final report.",
             "",

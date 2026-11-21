@@ -59,6 +59,41 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
+def binary_cross_entropy(
+    probability: torch.Tensor,
+    labels: torch.Tensor,
+    fake_class_weight: float = 1.0,
+) -> torch.Tensor:
+    losses = torch.nn.functional.binary_cross_entropy(
+        probability.clamp(1e-6, 1 - 1e-6),
+        labels,
+        reduction="none",
+    )
+    if fake_class_weight == 1.0:
+        return losses.mean()
+    sample_weights = torch.where(
+        labels.bool(),
+        torch.full_like(labels, fake_class_weight),
+        torch.ones_like(labels),
+    )
+    return (losses * sample_weights).sum() / sample_weights.sum()
+
+
+def class_balance_weight(
+    labels: np.ndarray,
+    train_index: np.ndarray,
+    enabled: bool,
+) -> float:
+    if not enabled:
+        return 1.0
+    train_labels = labels[train_index]
+    real_count = int(np.sum(train_labels == 0))
+    fake_count = int(np.sum(train_labels == 1))
+    if not real_count or not fake_count:
+        raise ValueError("Class-balanced training requires both real and fake videos")
+    return real_count / fake_count
+
+
 def load_features(path: str | Path) -> dict:
     with np.load(path, allow_pickle=False) as data:
         required = {
@@ -106,11 +141,20 @@ def mask_losses(
     blurred: torch.Tensor,
     labels: torch.Tensor,
     masks: torch.Tensor,
+    fake_class_weight: float = 1.0,
 ) -> torch.Tensor:
     losses, _ = mask_losses_and_probabilities(
         model, clean, blurred, labels, masks
     )
-    return losses
+    if fake_class_weight == 1.0:
+        return losses.mean()
+    repeated_labels = labels.repeat(len(masks))
+    sample_weights = torch.where(
+        repeated_labels.bool(),
+        torch.full_like(repeated_labels, fake_class_weight),
+        torch.ones_like(repeated_labels),
+    )
+    return (losses.reshape(-1) * sample_weights).sum() / sample_weights.sum()
 
 
 def mask_losses_and_probabilities(
@@ -137,6 +181,7 @@ def select_flip_hard_loss(
     base_mask_probability: torch.Tensor,
     labels: torch.Tensor,
     threshold: float,
+    fake_class_weight: float = 1.0,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Select the hardest currently wrong mask that was also a base error."""
     clean_correct = (base_clean_probability >= threshold) == labels.bool()
@@ -149,7 +194,17 @@ def select_flip_hard_loss(
     scores = losses.T.masked_fill(~eligible_or_fallback, -torch.inf)
     selected = scores.argmax(dim=1)
     selected_loss = losses[selected, torch.arange(len(labels), device=losses.device)]
-    return selected_loss.mean(), selected
+    sample_weights = torch.where(
+        labels.bool(),
+        torch.full_like(labels, fake_class_weight),
+        torch.ones_like(labels),
+    )
+    if fake_class_weight == 1.0:
+        return selected_loss.mean(), selected
+    return (
+        (selected_loss * sample_weights).sum() / sample_weights.sum(),
+        selected,
+    )
 
 
 def select_flip_weighted_loss(
@@ -159,6 +214,7 @@ def select_flip_weighted_loss(
     labels: torch.Tensor,
     threshold: float,
     flip_weight: float,
+    fake_class_weight: float = 1.0,
 ) -> torch.Tensor:
     """Emphasize base flip samples while retaining every mask in the loss."""
     clean_correct = (base_clean_probability >= threshold) == labels.bool()
@@ -170,7 +226,14 @@ def select_flip_weighted_loss(
         torch.ones_like(losses.T, dtype=losses.dtype),
     )
     weighted_loss = (losses.T * weights).sum(dim=1) / weights.sum(dim=1)
-    return weighted_loss.mean()
+    if fake_class_weight == 1.0:
+        return weighted_loss.mean()
+    sample_weights = torch.where(
+        labels.bool(),
+        torch.full_like(labels, fake_class_weight),
+        torch.ones_like(labels),
+    )
+    return (weighted_loss * sample_weights).sum() / sample_weights.sum()
 
 
 @torch.inference_mode()
@@ -181,10 +244,13 @@ def evaluate_loss_and_metrics(
     labels: torch.Tensor,
     masks: torch.Tensor,
     threshold: float,
+    fake_class_weight: float = 1.0,
 ) -> dict:
     model.eval()
     _, clean_probability = model(clean)
-    losses = mask_losses(model, clean, blurred, labels, masks)
+    degraded_loss = mask_losses(
+        model, clean, blurred, labels, masks, fake_class_weight
+    )
     probabilities = []
     for mask in masks:
         composed = compose_masks(clean, blurred, mask[None])
@@ -193,10 +259,10 @@ def evaluate_loss_and_metrics(
     probabilities = torch.stack(probabilities)
     return {
         "loss": float(
-            torch.nn.functional.binary_cross_entropy(
-                clean_probability.clamp(1e-6, 1 - 1e-6), labels
+            binary_cross_entropy(
+                clean_probability, labels, fake_class_weight
             )
-            + losses.mean()
+            + degraded_loss
         ),
         "clean": binary_metrics(
             labels.cpu().numpy(),
@@ -249,6 +315,11 @@ def train(args: argparse.Namespace) -> Path:
     splits = np.asarray([split_by_video[str(video_id)] for video_id in data["video_ids"]])
     train_index = np.flatnonzero(splits == "train")
     validation_index = np.flatnonzero(splits == "validation")
+    fake_class_weight = class_balance_weight(
+        data["label_index"],
+        train_index,
+        bool(training.get("class_balance_weighting", False)),
+    )
 
     clean = torch.from_numpy(data["features_original"]).to(device)
     blurred = torch.from_numpy(data["features_blur"]).to(device)
@@ -315,18 +386,33 @@ def train(args: argparse.Namespace) -> Path:
                     + blurred[index] * mask[:, :, None]
                 )
                 _, degraded_probability = model(composed)
-                degraded_loss = torch.nn.functional.binary_cross_entropy(
-                    degraded_probability.clamp(1e-6, 1 - 1e-6),
-                    labels,
+                degraded_loss = binary_cross_entropy(
+                    degraded_probability, labels, fake_class_weight
                 )
             else:
                 losses, mask_probabilities = mask_losses_and_probabilities(
                     model, clean[index], blurred[index], labels, train_masks
                 )
                 if args.method in ("uniform", "jpeg_only", "resize_only"):
-                    degraded_loss = losses.mean()
+                    degraded_loss = (
+                        losses.mean()
+                        if fake_class_weight == 1.0
+                        else binary_cross_entropy(
+                            mask_probabilities.reshape(-1),
+                            labels.repeat(len(train_masks)),
+                            fake_class_weight,
+                        )
+                    )
                 elif args.method == "consistency":
-                    degraded_loss = losses.mean()
+                    degraded_loss = (
+                        losses.mean()
+                        if fake_class_weight == 1.0
+                        else binary_cross_entropy(
+                            mask_probabilities.reshape(-1),
+                            labels.repeat(len(train_masks)),
+                            fake_class_weight,
+                        )
+                    )
                     consistency_loss = mask_probabilities.var(
                         dim=0, unbiased=False
                     ).mean()
@@ -340,9 +426,10 @@ def train(args: argparse.Namespace) -> Path:
                     _, degraded_probability, adapted_features = model(
                         flat, return_features=True
                     )
-                    degraded_loss = torch.nn.functional.binary_cross_entropy(
-                        degraded_probability.clamp(1e-6, 1 - 1e-6),
+                    degraded_loss = binary_cross_entropy(
+                        degraded_probability,
                         labels.repeat(len(train_masks)),
+                        fake_class_weight,
                     )
                     clean_target = (
                         clean[index]
@@ -363,6 +450,7 @@ def train(args: argparse.Namespace) -> Path:
                         base_mask_probability[index],
                         labels,
                         float(training["threshold"]),
+                        fake_class_weight,
                     )
                 else:
                     degraded_loss = select_flip_weighted_loss(
@@ -372,10 +460,11 @@ def train(args: argparse.Namespace) -> Path:
                         labels,
                         float(training["threshold"]),
                         float(training["flip_weight"]),
+                        fake_class_weight,
                     )
             _, clean_probability = model(clean[index])
-            clean_loss = torch.nn.functional.binary_cross_entropy(
-                clean_probability.clamp(1e-6, 1 - 1e-6), labels
+            clean_loss = binary_cross_entropy(
+                clean_probability, labels, fake_class_weight
             )
             if degraded_loss is None:
                 # Match the total loss weight used by mask-trained adapters.
@@ -409,6 +498,7 @@ def train(args: argparse.Namespace) -> Path:
             label_index[validation_tensor].float(),
             evaluation_masks,
             float(training["threshold"]),
+            fake_class_weight,
         )
         row = {
             "epoch": epoch,
@@ -431,6 +521,7 @@ def train(args: argparse.Namespace) -> Path:
                     "seed": args.seed,
                     "split_seed": split_seed,
                     "blurred_frames": args.blurred_frames,
+                    "fake_class_weight": fake_class_weight,
                     "epoch": epoch,
                     "validation": validation,
                     "feature_file": str(Path(args.features).resolve()),
@@ -466,6 +557,7 @@ def train(args: argparse.Namespace) -> Path:
                 "blurred_frames": args.blurred_frames,
                 "best_epoch": best_epoch,
                 "best_validation_loss": best_loss,
+                "fake_class_weight": fake_class_weight,
                 "feature_file": str(Path(args.features).resolve()),
                 "split_summary": split_summary(records),
                 "split_seed": args.seed,

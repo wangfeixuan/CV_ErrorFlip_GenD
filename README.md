@@ -128,6 +128,19 @@ The source-group key also keeps all synthesized videos generated from the
 same identity pair together. It does not prove complete identity isolation,
 which must remain an explicit limitation in the report.
 
+### DFDC development set
+
+To separate Adapter development from final evaluation, the repository also
+supports a DFDC `train_part_0` migration. DFDC supplies the 85/15 train and
+validation videos, while the complete Celeb-DF 518-video list is evaluated only
+as an external test set. DFDC grouping follows the `original` field so that a
+real source and all fake videos derived from it stay in the same split.
+
+The video mirror does not contain labels. Download the separate metadata table
+and follow [`docs/DFDC_MIGRATION.md`](docs/DFDC_MIGRATION.md). The migration uses
+YuNet and a five-point ArcFace alignment; failed face detections are logged
+instead of replaced with center crops.
+
 ## Server setup
 
 Use only the dedicated directory:

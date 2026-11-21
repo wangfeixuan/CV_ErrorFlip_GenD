@@ -15,7 +15,7 @@ from PIL import Image
 from tqdm import tqdm
 
 from .constants import PROJECT_ROOT
-from .data import paired_zip_indexes, write_manifest
+from .data import apply_group_manifest, paired_zip_indexes, write_manifest
 from .gend_model import GenDEncoder
 
 
@@ -27,6 +27,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", required=True)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument(
+        "--group-manifest",
+        help="CSV with video_id,label,group_id for cross-dataset source grouping",
+    )
     parser.add_argument("--skip-model-hash", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     return parser.parse_args()
@@ -45,6 +49,8 @@ def extract(args: argparse.Namespace) -> Path:
     if output.exists() and not args.overwrite:
         raise FileExistsError(f"{output} exists; pass --overwrite to replace it")
     records = paired_zip_indexes(args.original_zip, args.blur_zip)
+    if args.group_manifest:
+        records = apply_group_manifest(records, args.group_manifest)
     bad = [record["video_id"] for record in records if record["frame_count"] != 4]
     if bad:
         raise ValueError(f"Expected four frames per video; bad records: {bad[:10]}")
@@ -110,6 +116,11 @@ def extract(args: argparse.Namespace) -> Path:
         "original_zip_sha256": file_sha256(args.original_zip),
         "blur_zip": str(Path(args.blur_zip).resolve()),
         "blur_zip_sha256": file_sha256(args.blur_zip),
+        "group_manifest": (
+            str(Path(args.group_manifest).resolve())
+            if args.group_manifest
+            else None
+        ),
         "videos": len(records),
         "frames_per_video": 4,
         "feature_dim": 1024,

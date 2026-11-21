@@ -17,7 +17,7 @@ from .gend_model import choose_device
 from .masks import compose_masks, masks_with_count
 from .metrics import binary_metrics
 from .mixed_features import load_mixed_features
-from .train import set_seed
+from .train import binary_cross_entropy, class_balance_weight, set_seed
 
 
 def parse_args() -> argparse.Namespace:
@@ -72,11 +72,12 @@ def evaluate_validation(
     labels: torch.Tensor,
     masks: torch.Tensor,
     threshold: float,
+    fake_class_weight: float = 1.0,
 ) -> dict:
     model.eval()
     _, clean_probability = model(clean)
-    clean_loss = torch.nn.functional.binary_cross_entropy(
-        clean_probability.clamp(1e-6, 1 - 1e-6), labels
+    clean_loss = binary_cross_entropy(
+        clean_probability, labels, fake_class_weight
     )
     details = {}
     losses = []
@@ -85,9 +86,10 @@ def evaluate_validation(
         flat = composed.reshape(-1, composed.shape[-2], composed.shape[-1])
         _, probabilities = model(flat)
         losses.append(
-            torch.nn.functional.binary_cross_entropy(
-                probabilities.clamp(1e-6, 1 - 1e-6),
+            binary_cross_entropy(
+                probabilities,
                 labels.repeat(len(masks)),
+                fake_class_weight,
             )
         )
         per_mask = probabilities.reshape(len(masks), len(labels))
@@ -152,6 +154,11 @@ def train(args: argparse.Namespace) -> Path:
     splits = np.asarray([split_by_video[str(video_id)] for video_id in data["video_ids"]])
     train_index = np.flatnonzero(splits == "train")
     validation_index = np.flatnonzero(splits == "validation")
+    fake_class_weight = class_balance_weight(
+        data["label_index"],
+        train_index,
+        bool(training.get("class_balance_weighting", False)),
+    )
 
     clean = torch.from_numpy(data["clean"]).to(device)
     degradation_list = [
@@ -203,9 +210,8 @@ def train(args: argparse.Namespace) -> Path:
                     + selected_degraded * selected_masks[:, :, None]
                 )
                 _, degraded_probability = model(degraded_input)
-                degraded_loss = torch.nn.functional.binary_cross_entropy(
-                    degraded_probability.clamp(1e-6, 1 - 1e-6),
-                    batch_labels,
+                degraded_loss = binary_cross_entropy(
+                    degraded_probability, batch_labels, fake_class_weight
                 )
             else:
                 type_counts += len(index)
@@ -218,16 +224,16 @@ def train(args: argparse.Namespace) -> Path:
                     )
                     _, degraded_probability = model(degraded_input)
                     type_losses.append(
-                        torch.nn.functional.binary_cross_entropy(
-                            degraded_probability.clamp(1e-6, 1 - 1e-6),
+                        binary_cross_entropy(
+                            degraded_probability,
                             batch_labels,
+                            fake_class_weight,
                         )
                     )
                 degraded_loss = torch.stack(type_losses).mean()
             _, clean_probability = model(clean[index])
-            clean_loss = torch.nn.functional.binary_cross_entropy(
-                clean_probability.clamp(1e-6, 1 - 1e-6),
-                batch_labels,
+            clean_loss = binary_cross_entropy(
+                clean_probability, batch_labels, fake_class_weight
             )
             loss = (
                 float(training["clean_loss_weight"]) * clean_loss
@@ -249,6 +255,7 @@ def train(args: argparse.Namespace) -> Path:
             labels[validation_tensor].float(),
             masks,
             float(training["threshold"]),
+            fake_class_weight,
         )
         row = {
             "epoch": epoch,
@@ -276,6 +283,7 @@ def train(args: argparse.Namespace) -> Path:
                     "seed": args.seed,
                     "split_seed": split_seed,
                     "blurred_frames": 2,
+                    "fake_class_weight": fake_class_weight,
                     "epoch": epoch,
                     "validation": validation,
                     "split_by_video": split_by_video,
@@ -310,6 +318,7 @@ def train(args: argparse.Namespace) -> Path:
                 "seed": args.seed,
                 "split_seed": split_seed,
                 "blurred_frames": 2,
+                "fake_class_weight": fake_class_weight,
                 "best_epoch": best_epoch,
                 "best_validation_loss": best_loss,
                 "split_summary": split_summary(records),

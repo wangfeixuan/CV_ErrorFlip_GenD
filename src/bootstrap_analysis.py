@@ -15,6 +15,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", required=True)
     parser.add_argument("--bootstrap", type=int, default=10000)
     parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--glob", default="*/eval_test*.per_video.csv")
+    parser.add_argument("--group-manifest")
     return parser.parse_args()
 
 
@@ -23,8 +25,8 @@ def load_csv(path: Path) -> list[dict]:
         return list(csv.DictReader(handle))
 
 
-def build_arrays(runs: Path) -> tuple[np.ndarray, dict, list[str]]:
-    files = sorted(runs.glob("*/eval_test*.csv"))
+def build_arrays(runs: Path, pattern: str) -> tuple[np.ndarray, dict, list[str]]:
+    files = sorted(runs.glob(pattern))
     if not files:
         raise FileNotFoundError("No per-video evaluation CSV files")
     observations: dict[
@@ -94,7 +96,12 @@ def build_arrays(runs: Path) -> tuple[np.ndarray, dict, list[str]]:
     return observations, labels_by_video, files
 
 
-def group_map(runs: Path) -> dict[str, str]:
+def group_map(runs: Path, manifest_path: str | None = None) -> dict[str, str]:
+    if manifest_path:
+        return {
+            row["video_id"]: row["group_id"]
+            for row in load_csv(Path(manifest_path))
+        }
     manifests = sorted(runs.glob("*/split_manifest.csv"))
     if not manifests:
         raise FileNotFoundError("Missing split manifest")
@@ -142,8 +149,8 @@ def bootstrap_difference(
 def main() -> None:
     args = parse_args()
     runs = Path(args.runs_dir)
-    observations, labels_by_video, files = build_arrays(runs)
-    groups = group_map(runs)
+    observations, labels_by_video, files = build_arrays(runs, args.glob)
+    groups = group_map(runs, args.group_manifest)
     video_ids = sorted(labels_by_video)
     if set(video_ids) != set(groups):
         missing = sorted(set(video_ids) ^ set(groups))

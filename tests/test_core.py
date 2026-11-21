@@ -7,7 +7,17 @@ import torch
 from PIL import Image
 
 from src.adapter import GenDAdapter
-from src.data import assign_group_splits, index_zip, source_group
+from src.data import (
+    apply_group_manifest,
+    assign_group_splits,
+    index_zip,
+    source_group,
+)
+from src.import_dfdc import (
+    evenly_spaced_indices,
+    read_metadata,
+    source_group_id,
+)
 from src.import_wilddeepfake import import_shards
 from src.masks import all_masks, masks_with_count
 from src.metrics import binary_metrics
@@ -120,3 +130,77 @@ def test_wilddeepfake_import_fixture(tmp_path):
     assert len(indexed) == 1
     assert indexed[0]["label"] == "real"
     assert indexed[0]["frame_count"] == 4
+
+
+def test_dfdc_metadata_and_source_grouping(tmp_path):
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(
+        """
+        {
+          "original.mp4": {"label": "REAL", "original": null},
+          "fake-a.mp4": {"label": "FAKE", "original": "original.mp4"},
+          "fake-b.mp4": {"label": "FAKE", "original": "original.mp4"}
+        }
+        """,
+        encoding="utf-8",
+    )
+    metadata = read_metadata(metadata_path)
+    assert metadata["original.mp4"]["label"] == "real"
+    assert metadata["fake-a.mp4"]["label"] == "fake"
+    assert source_group_id(None, "original.mp4") == source_group_id(
+        "original.mp4", "fake-a.mp4"
+    )
+    assert source_group_id("original.mp4", "fake-a.mp4") == source_group_id(
+        "original.mp4", "fake-b.mp4"
+    )
+    assert evenly_spaced_indices(10, 4) == [0, 3, 6, 9]
+
+
+def test_group_manifest_overrides_zip_groups(tmp_path):
+    records = [
+        {"video_id": "fake-a", "label": "fake", "group_id": "fake-video-a"},
+        {"video_id": "real-source", "label": "real", "group_id": "real-video-source"},
+    ]
+    manifest = tmp_path / "groups.csv"
+    with manifest.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["video_id", "label", "group_id"])
+        writer.writeheader()
+        writer.writerow(
+            {"video_id": "fake-a", "label": "fake", "group_id": "dfdc-source-1"}
+        )
+        writer.writerow(
+            {"video_id": "real-source", "label": "real", "group_id": "dfdc-source-1"}
+        )
+    updated = apply_group_manifest(records, manifest)
+    assert {record["group_id"] for record in updated} == {"dfdc-source-1"}
+
+
+def test_multi_label_source_groups_do_not_leak():
+    records = []
+    for group in range(20):
+        group_id = f"dfdc-source-{group}"
+        records.append(
+            {
+                "video_id": f"real-{group}",
+                "label": "real",
+                "group_id": group_id,
+            }
+        )
+        for fake in range(3):
+            records.append(
+                {
+                    "video_id": f"fake-{group}-{fake}",
+                    "label": "fake",
+                    "group_id": group_id,
+                }
+            )
+    assigned = assign_group_splits(
+        records,
+        {"train": 0.85, "validation": 0.15, "test": 0.0},
+        2026,
+    )
+    group_splits = {}
+    for record in assigned:
+        group_splits.setdefault(record["group_id"], set()).add(record["split"])
+    assert all(len(splits) == 1 for splits in group_splits.values())
+    assert {record["split"] for record in assigned} == {"train", "validation"}
