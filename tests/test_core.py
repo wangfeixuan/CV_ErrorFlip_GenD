@@ -18,6 +18,7 @@ from src.import_dfdc import (
     read_metadata,
     source_group_id,
 )
+from src.train_multidomain import balanced_sample
 from src.import_wilddeepfake import import_shards
 from src.masks import all_masks, masks_with_count
 from src.metrics import binary_metrics
@@ -204,3 +205,14 @@ def test_multi_label_source_groups_do_not_leak():
         group_splits.setdefault(record["group_id"], set()).add(record["split"])
     assert all(len(splits) == 1 for splits in group_splits.values())
     assert {record["split"] for record in assigned} == {"train", "validation"}
+
+
+def test_multidomain_balanced_sample_has_equal_classes():
+    indices = torch.arange(100)
+    labels = torch.zeros(100, dtype=torch.int64)
+    labels[:90] = 1
+    generator = torch.Generator().manual_seed(2026)
+    sampled = balanced_sample(indices, labels, 16, generator)
+    sampled_labels = labels[sampled]
+    assert int((sampled_labels == 0).sum()) == 8
+    assert int((sampled_labels == 1).sum()) == 8

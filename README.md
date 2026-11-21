@@ -141,6 +141,11 @@ and follow [`docs/DFDC_MIGRATION.md`](docs/DFDC_MIGRATION.md). The migration use
 YuNet and a five-point ArcFace alignment; failed face detections are logged
 instead of replaced with center crops.
 
+DFDC-only training showed severe domain shift. Joint domain-balanced training
+with Celeb-DF and DFDC recovers held-out Celeb-DF accuracy while retaining
+DFDC performance. See
+[`results_multidomain/README.md`](results_multidomain/README.md).
+
 ## Server setup
 
 Use only the dedicated directory:

@@ -17,6 +17,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--glob", default="*/eval_test*.per_video.csv")
     parser.add_argument("--group-manifest")
+    parser.add_argument("--group-split")
+    parser.add_argument("--baseline-method", default="uniform")
+    parser.add_argument("--clean-method", default="clean_only")
     return parser.parse_args()
 
 
@@ -96,11 +99,18 @@ def build_arrays(runs: Path, pattern: str) -> tuple[np.ndarray, dict, list[str]]
     return observations, labels_by_video, files
 
 
-def group_map(runs: Path, manifest_path: str | None = None) -> dict[str, str]:
+def group_map(
+    runs: Path,
+    manifest_path: str | None = None,
+    split_filter: str | None = None,
+) -> dict[str, str]:
     if manifest_path:
+        rows = load_csv(Path(manifest_path))
+        if split_filter:
+            rows = [row for row in rows if row.get("split") == split_filter]
         return {
             row["video_id"]: row["group_id"]
-            for row in load_csv(Path(manifest_path))
+            for row in rows
         }
     manifests = sorted(runs.glob("*/split_manifest.csv"))
     if not manifests:
@@ -150,7 +160,7 @@ def main() -> None:
     args = parse_args()
     runs = Path(args.runs_dir)
     observations, labels_by_video, files = build_arrays(runs, args.glob)
-    groups = group_map(runs, args.group_manifest)
+    groups = group_map(runs, args.group_manifest, args.group_split)
     video_ids = sorted(labels_by_video)
     if set(video_ids) != set(groups):
         missing = sorted(set(video_ids) ^ set(groups))
@@ -166,9 +176,13 @@ def main() -> None:
         if len({len(entry[2]) for entry in entries}) != 1:
             raise ValueError(f"Seed video sets differ for {condition}/{method}")
         base, adapter, base_clean, adapter_clean = averaged_correctness(entries)
-        uniform_entry = observations.get((condition, "uniform", 2))
+        uniform_entry = observations.get(
+            (condition, args.baseline_method, 2)
+        )
         if uniform_entry is None:
-            raise ValueError(f"Missing uniform baseline for {condition}")
+            raise ValueError(
+                f"Missing baseline {args.baseline_method!r} for {condition}"
+            )
         _, uniform, _, _ = averaged_correctness(sorted(uniform_entry))
         comparisons = {
             "adapter_vs_base_local": adapter - base,
@@ -176,8 +190,10 @@ def main() -> None:
         }
         if method != "uniform_random":
             comparisons["method_vs_uniform_local"] = adapter - uniform
-        if method == "uniform":
-            clean_only_entry = observations.get((condition, "clean_only", 2))
+        if method == args.baseline_method:
+            clean_only_entry = observations.get(
+                (condition, args.clean_method, 2)
+            )
             if clean_only_entry is not None:
                 _, clean_only_adapter, _, _ = averaged_correctness(
                     sorted(clean_only_entry)
@@ -186,7 +202,9 @@ def main() -> None:
                     adapter - clean_only_adapter
                 )
         if method == "uniform_random":
-            clean_only_entry = observations.get((condition, "clean_only", 2))
+            clean_only_entry = observations.get(
+                (condition, args.clean_method, 2)
+            )
             if clean_only_entry is not None:
                 _, clean_only_adapter, _, _ = averaged_correctness(
                     sorted(clean_only_entry)
