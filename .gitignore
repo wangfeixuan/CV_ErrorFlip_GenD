@@ -21,3 +21,7 @@ results_final/artifacts/
 
 output/pdf/*.aux
 output/pdf/*.log
+reports/*.aux
+reports/*.log
+dist/archive_pre_apa/
+dist/archive_pre_final_apa/

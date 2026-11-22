@@ -146,6 +146,31 @@ with Celeb-DF and DFDC recovers held-out Celeb-DF accuracy while retaining
 DFDC performance. See
 [`results_multidomain/README.md`](results_multidomain/README.md).
 
+### Final report artifacts
+
+The editable report is
+[`reports/CV_ErrorFlip_GenD_Report_20261122.docx`](reports/CV_ErrorFlip_GenD_Report_20261122.docx).
+The LaTeX source and final PDF share the same experimental results:
+
+- `reports/CV_ErrorFlip_GenD_Report_20261122.tex`
+- `reports/CV_ErrorFlip_GenD_Report_20261122.pdf`
+
+The previous report and draft are preserved under `reports/archive/` for
+version rollback. The submission bundle excludes raw videos, model weights,
+and large feature caches.
+
+Build the editable report with:
+
+```bash
+python -m src.build_report_docx
+```
+
+Compile the paper-formatted PDF from the `reports/` directory with:
+
+```bash
+tectonic CV_ErrorFlip_GenD_Report_20261122.tex
+```
+
 ## Server setup
 
 Use only the dedicated directory:
