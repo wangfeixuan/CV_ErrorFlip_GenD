@@ -1,0 +1,28 @@
+seed: 2026
+
+data:
+  frames_per_video: 4
+  feature_dim: 1024
+  split_ratios:
+    train: 0.70
+    validation: 0.15
+    test: 0.15
+
+model:
+  bottleneck: 64
+  dropout: 0.15
+  scale_init: 0.00
+  reliability_hidden: 32
+
+training:
+  epochs: 40
+  patience: 10
+  batch_size: 32
+  learning_rate: 0.0005
+  weight_decay: 0.001
+  clean_loss_weight: 0.50
+  mixed_loss_weight: 1.00
+  reliability_rank_weight: 0.05
+  uniform_prior_weight: 0.01
+  gradient_clip: 1.0
+  threshold: 0.50

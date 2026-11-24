@@ -19,6 +19,7 @@ from src.import_dfdc import (
     source_group_id,
 )
 from src.train_multidomain import balanced_sample
+from src.train_hda import heterogeneous_patterns
 from src.import_wilddeepfake import import_shards
 from src.masks import all_masks, masks_with_count
 from src.metrics import binary_metrics
@@ -216,3 +217,12 @@ def test_multidomain_balanced_sample_has_equal_classes():
     sampled_labels = labels[sampled]
     assert int((sampled_labels == 0).sum()) == 8
     assert int((sampled_labels == 1).sum()) == 8
+
+
+def test_heterogeneous_patterns_preserve_clean_frames():
+    patterns = heterogeneous_patterns(1, 2)
+    assert patterns.shape == (12, 4)
+    assert torch.all((patterns == 0).sum(dim=1) == 2)
+    assert torch.all((patterns == 1).sum(dim=1) == 1)
+    assert torch.all((patterns == 2).sum(dim=1) == 1)
+    assert len({tuple(row.tolist()) for row in patterns}) == 12

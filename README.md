@@ -171,6 +171,13 @@ Compile the paper-formatted PDF from the `reports/` directory with:
 tectonic CV_ErrorFlip_GenD_Report_20261122.tex
 ```
 
+### Heterogeneous degradation experiment
+
+An additional frame-reliability experiment is implemented for videos with one
+blurred frame, one JPEG frame, and two clean frames. The model learns frame
+weights without receiving degradation-type labels at inference. See
+[`docs/HDA_FRAME_WEIGHTING.md`](docs/HDA_FRAME_WEIGHTING.md).
+
 ## Server setup
 
 Use only the dedicated directory:
