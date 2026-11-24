@@ -187,6 +187,15 @@ The literature audit for forensic-evidence preservation and adaptive frame
 aggregation is recorded in
 [`docs/RESEARCH_GAP_AUDIT.md`](docs/RESEARCH_GAP_AUDIT.md).
 
+The frozen-model residual audit and revised discriminative-residual experiment
+plan are recorded in
+[`docs/DISCRIMINATIVE_RESIDUAL_PLAN.md`](docs/DISCRIMINATIVE_RESIDUAL_PLAN.md).
+Run the training-free diagnostic with:
+
+```bash
+bash scripts/run_residual_diagnostics.sh
+```
+
 ## Server setup
 
 Use only the dedicated directory:
