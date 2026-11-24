@@ -183,6 +183,10 @@ in all three seeds and all three mixed suites. It does not dominate simple
 confidence weighting on clean frames. Results are recorded in
 [`results_hda/README.md`](results_hda/README.md).
 
+The literature audit for forensic-evidence preservation and adaptive frame
+aggregation is recorded in
+[`docs/RESEARCH_GAP_AUDIT.md`](docs/RESEARCH_GAP_AUDIT.md).
+
 ## Server setup
 
 Use only the dedicated directory:
