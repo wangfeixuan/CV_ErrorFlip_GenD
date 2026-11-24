@@ -196,6 +196,18 @@ Run the training-free diagnostic with:
 bash scripts/run_residual_diagnostics.sh
 ```
 
+The corrected Stage 2 mechanism audit compares Uniform, Feature Restoration,
+and Clean-only adapters under one four-frame protocol, evaluates R1–R6,
+error-conditioned residuals, cross-head diagnostics, matched random controls,
+subspaces, calibration, and Ridge predictability. Results and the next-stage
+decision are in
+[`docs/STAGE2_REVISION_RESULTS.md`](docs/STAGE2_REVISION_RESULTS.md).
+Reproduce the analysis without neural-network training:
+
+```bash
+bash scripts/run_stage2_revision.sh
+```
+
 ## Server setup
 
 Use only the dedicated directory:

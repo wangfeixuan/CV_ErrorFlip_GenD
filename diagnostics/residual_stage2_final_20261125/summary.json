@@ -1,0 +1,49 @@
+{
+  "checkpoint": "/root/autodl-tmp/CV_ErrorFlip_GenD/runs_final/uniform_seed2026/best.pt",
+  "runs_root": "/root/autodl-tmp/CV_ErrorFlip_GenD/runs_final",
+  "seeds": [
+    2026,
+    2027,
+    2028
+  ],
+  "threshold": 0.5,
+  "alphas": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+  ],
+  "ratios": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.5
+  ],
+  "block_sizes": [
+    16,
+    32
+  ],
+  "ridge_alphas": [
+    0.01,
+    0.1,
+    1.0,
+    10.0,
+    100.0,
+    1000.0
+  ],
+  "random_repeats": 24,
+  "bootstrap_repeats": 10000,
+  "reverse_coordinate_rule": {
+    "R1": "z0 - R1 = zd",
+    "R2": "z0 - R2 = za",
+    "R3": "zc - R3 = za"
+  }
+}

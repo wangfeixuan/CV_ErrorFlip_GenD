@@ -24,7 +24,13 @@ CONDITIONS = {
     "resize_25": "Resize 25%",
 }
 RATIOS = (0.01, 0.05, 0.10, 0.20, 0.50)
-SELECTORS = ("random", "magnitude", "classifier", "discriminative")
+SELECTORS = (
+    "random",
+    "magnitude",
+    "classifier",
+    "discriminative",
+    "signed_discriminative",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -92,6 +98,7 @@ def feature_state(
     z0 = torch.from_numpy(data["features_original"][indices]).to(device).float()
     zd = torch.from_numpy(data["features_blur"][indices]).to(device).float()
     zr = model.adapter(zd)
+    zc = model.adapter(z0)
     base_clean_logits = torch.from_numpy(data["base_logits"][indices]).to(device)
     base_degraded_logits = torch.from_numpy(data["base_logits_blur"][indices]).to(device)
     adapter_logits = model.head(zr)
@@ -100,6 +107,7 @@ def feature_state(
         "z0": z0,
         "zd": zd,
         "zr": zr,
+        "zc": zc,
         "r_degradation": z0 - zd,
         "r_recovered": zr - zd,
         "r_missing": z0 - zr,
@@ -362,17 +370,22 @@ def intervene(
 ) -> dict:
     vector = mask.to(state["zr"].device)
     if direction == "add":
-        features = state["zr"] + vector * state["r_missing"]
+        start = state["zr"]
+        features = start + vector * state["r_missing"]
     elif direction == "reverse":
-        features = state["z0"] - vector * state["r_missing"]
+        # r_missing is defined in Adapter output space. Its clean endpoint is
+        # therefore A(z_original), not the pre-Adapter GenD feature z_original.
+        start = state["zc"]
+        features = start - vector * state["r_missing"]
     else:
         raise ValueError(direction)
     features = torch.nn.functional.normalize(features, p=2, dim=-1)
     logits = model.head(features)
     probability = probabilities(logits)
-    base_probability = probabilities(state["adapter_logits"])
+    base_logits = model.head(start)
+    base_probability = probabilities(base_logits)
     margin = correct_class_margin(logits, state["labels"])
-    base_margin = correct_class_margin(state["adapter_logits"], state["labels"])
+    base_margin = correct_class_margin(base_logits, state["labels"])
     return {
         "metrics": binary_metrics(
             state["labels"].cpu().numpy(),
@@ -389,6 +402,9 @@ def intervene(
         ),
         "probability": probability,
         "logits": logits,
+        "base_probability": base_probability,
+        "base_logits": base_logits,
+        "base_margin": float(base_margin.mean()),
     }
 
 

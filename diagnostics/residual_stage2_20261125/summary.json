@@ -1,0 +1,25 @@
+{
+  "checkpoint": "/root/autodl-tmp/CV_ErrorFlip_GenD/runs_final/uniform_seed2026/best.pt",
+  "threshold": 0.5,
+  "alphas": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+  ],
+  "ratios": [
+    0.01,
+    0.05,
+    0.1,
+    0.2,
+    0.5
+  ],
+  "cross_tabulation": "See CSV outputs."
+}

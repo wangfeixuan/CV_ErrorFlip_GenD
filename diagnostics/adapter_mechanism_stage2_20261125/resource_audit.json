@@ -1,0 +1,35 @@
+{
+  "uniform_checkpoints": [
+    "/root/autodl-tmp/CV_ErrorFlip_GenD/runs_final/uniform_seed2026/best.pt",
+    "/root/autodl-tmp/CV_ErrorFlip_GenD/runs_final/uniform_seed2027/best.pt",
+    "/root/autodl-tmp/CV_ErrorFlip_GenD/runs_final/uniform_seed2028/best.pt"
+  ],
+  "restoration_checkpoints": [
+    "/root/autodl-tmp/CV_ErrorFlip_GenD/runs_final/restore_seed2026/best.pt",
+    "/root/autodl-tmp/CV_ErrorFlip_GenD/runs_final/restore_seed2027/best.pt",
+    "/root/autodl-tmp/CV_ErrorFlip_GenD/runs_final/restore_seed2028/best.pt"
+  ],
+  "clean_only_checkpoints": [
+    "/root/autodl-tmp/CV_ErrorFlip_GenD/runs_final/clean_only_seed2026/best.pt",
+    "/root/autodl-tmp/CV_ErrorFlip_GenD/runs_final/clean_only_seed2027/best.pt",
+    "/root/autodl-tmp/CV_ErrorFlip_GenD/runs_final/clean_only_seed2028/best.pt"
+  ],
+  "historical_training_protocol": {
+    "shared_split": true,
+    "uniform_method": "uniform",
+    "restoration_method": "restore",
+    "restoration_additional_weights": {
+      "restoration_weight": 5.0,
+      "consistency_weight": 5.0
+    },
+    "same_adapter_architecture": true
+  },
+  "evaluation_scope": "Four fully degraded frames per video; no mask mixing.",
+  "independent_head": {
+    "estimator": "LogisticRegression",
+    "C": 0.1,
+    "class_weight": "balanced",
+    "fit_split": "train",
+    "selection": "No test-based tuning."
+  }
+}

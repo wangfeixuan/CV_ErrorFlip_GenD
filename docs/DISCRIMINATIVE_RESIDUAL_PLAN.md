@@ -6,6 +6,11 @@
 尚未训练任何新模型。这里的诊断使用三个现成的全帧退化缓存，即四帧全部退化；
 它不是主报告中“两帧清晰、两帧退化”的 16-mask 评估，两个结果不能直接混用。
 
+Stage 2 Revision 的完整结果、实现修正、Uniform/Feature-Restoration 机制对照、
+R1–R6、错误转移分组、Ridge 可预测性和下一阶段决策，见
+[`STAGE2_REVISION_RESULTS.md`](STAGE2_REVISION_RESULTS.md)。当前结论是
+Conditional GO：先做独立数据复核，不直接启动 Method A/B 训练。
+
 ## 1. 当前 GenD + Adapter 的实际结构
 
 ### 1.1 GenD
