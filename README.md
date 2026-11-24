@@ -178,6 +178,11 @@ blurred frame, one JPEG frame, and two clean frames. The model learns frame
 weights without receiving degradation-type labels at inference. See
 [`docs/HDA_FRAME_WEIGHTING.md`](docs/HDA_FRAME_WEIGHTING.md).
 
+The learned aggregator improves mixed-condition accuracy over uniform averaging
+in all three seeds and all three mixed suites. It does not dominate simple
+confidence weighting on clean frames. Results are recorded in
+[`results_hda/README.md`](results_hda/README.md).
+
 ## Server setup
 
 Use only the dedicated directory:

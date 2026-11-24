@@ -245,7 +245,8 @@ def evaluate_patterns(
     model.eval()
     base_rows = []
     adapter_rows = []
-    oracle_rows = []
+    base_oracle_rows = []
+    adapter_oracle_rows = []
     weight_rows = []
     for pattern in patterns:
         repeated = pattern.unsqueeze(0).expand(len(labels), -1)
@@ -259,7 +260,11 @@ def evaluate_patterns(
         base_probability = base_frames.mean(dim=-1)
         clean_mask = (repeated == TYPE_CLEAN).float()
         oracle_weights = clean_mask / clean_mask.sum(dim=-1, keepdim=True)
-        oracle_probability = (oracle_weights * base_frames).sum(dim=-1)
+        base_oracle_probability = (oracle_weights * base_frames).sum(dim=-1)
+        adapter_frames = model.head(model.adapter(mixed)).softmax(dim=-1)[..., 1]
+        adapter_oracle_probability = (
+            oracle_weights * adapter_frames
+        ).sum(dim=-1)
         base_rows.append(
             binary_metrics(
                 labels.cpu().numpy(),
@@ -274,10 +279,17 @@ def evaluate_patterns(
                 threshold,
             )
         )
-        oracle_rows.append(
+        base_oracle_rows.append(
             binary_metrics(
                 labels.cpu().numpy(),
-                oracle_probability.cpu().numpy(),
+                base_oracle_probability.cpu().numpy(),
+                threshold,
+            )
+        )
+        adapter_oracle_rows.append(
+            binary_metrics(
+                labels.cpu().numpy(),
+                adapter_oracle_probability.cpu().numpy(),
                 threshold,
             )
         )
@@ -326,8 +338,14 @@ def evaluate_patterns(
         "base_worst_accuracy": float(np.min(base_video)),
         "adapter_mean_accuracy": mean_accuracy(adapter_rows),
         "adapter_worst_accuracy": float(np.min(adapter_video)),
-        "oracle_mean_accuracy": mean_accuracy(oracle_rows),
-        "oracle_worst_accuracy": float(np.min([row["accuracy"] for row in oracle_rows])),
+        "base_oracle_mean_accuracy": mean_accuracy(base_oracle_rows),
+        "base_oracle_worst_accuracy": float(
+            np.min([row["accuracy"] for row in base_oracle_rows])
+        ),
+        "adapter_oracle_mean_accuracy": mean_accuracy(adapter_oracle_rows),
+        "adapter_oracle_worst_accuracy": float(
+            np.min([row["accuracy"] for row in adapter_oracle_rows])
+        ),
         "mean_clean_weight": float(np.mean([row["clean"] for row in weight_rows])),
         "mean_degraded_weight": float(
             np.mean([row["degraded"] for row in weight_rows])
@@ -521,7 +539,9 @@ def train(args: argparse.Namespace) -> Path:
             "validation_loss": score,
             "validation_mean_accuracy": validation["adapter_mean_accuracy"],
             "validation_worst_accuracy": validation["adapter_worst_accuracy"],
-            "validation_oracle_accuracy": validation["oracle_mean_accuracy"],
+            "validation_oracle_accuracy": validation[
+                "adapter_oracle_mean_accuracy"
+            ],
             "clean_weight": validation["mean_clean_weight"],
             "degraded_weight": validation["mean_degraded_weight"],
         }

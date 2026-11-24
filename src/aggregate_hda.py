@@ -35,8 +35,10 @@ def main() -> None:
                             "base_worst_accuracy",
                             "adapter_mean_accuracy",
                             "adapter_worst_accuracy",
-                            "oracle_mean_accuracy",
-                            "oracle_worst_accuracy",
+                            "base_oracle_mean_accuracy",
+                            "base_oracle_worst_accuracy",
+                            "adapter_oracle_mean_accuracy",
+                            "adapter_oracle_worst_accuracy",
                             "base_clean",
                             "adapter_clean",
                             "mean_clean_weight",
@@ -69,8 +71,10 @@ def main() -> None:
         "base_worst_accuracy",
         "adapter_mean_accuracy",
         "adapter_worst_accuracy",
-        "oracle_mean_accuracy",
-        "oracle_worst_accuracy",
+        "base_oracle_mean_accuracy",
+        "base_oracle_worst_accuracy",
+        "adapter_oracle_mean_accuracy",
+        "adapter_oracle_worst_accuracy",
         "base_clean_accuracy",
         "adapter_clean_accuracy",
         "mean_clean_weight",
@@ -93,14 +97,15 @@ def main() -> None:
     lines = [
         "# Heterogeneous degradation aggregation",
         "",
-        "| Suite | Method | Seeds | Base clean | Adapter clean | Base mixed | Adapter mixed | Adapter worst | Oracle mixed | Clean weight | Degraded weight |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Suite | Method | Seeds | Base clean | Adapter clean | Base mixed | Adapter mixed | Adapter worst | Base oracle | Adapter oracle | Clean weight | Degraded weight |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in summary:
         lines.append(
             "| {suite} | {method} | {seeds} | {base_clean:.2f}% | "
             "{adapter_clean:.2f}% | {base:.2f}% | {adapter:.2f}% | "
-            "{worst:.2f}% | {oracle:.2f}% | {clean_w:.3f} | {deg_w:.3f} |".format(
+            "{worst:.2f}% | {base_oracle:.2f}% | {adapter_oracle:.2f}% | "
+            "{clean_w:.3f} | {deg_w:.3f} |".format(
                 suite=row["suite"],
                 method=row["method"],
                 seeds=row["seeds"],
@@ -109,7 +114,9 @@ def main() -> None:
                 base=100 * row["base_mean_accuracy_mean"],
                 adapter=100 * row["adapter_mean_accuracy_mean"],
                 worst=100 * row["adapter_worst_accuracy_mean"],
-                oracle=100 * row["oracle_mean_accuracy_mean"],
+                base_oracle=100 * row["base_oracle_mean_accuracy_mean"],
+                adapter_oracle=100
+                * row["adapter_oracle_mean_accuracy_mean"],
                 clean_w=row["mean_clean_weight_mean"],
                 deg_w=row["mean_degraded_weight_mean"],
             )

@@ -43,5 +43,22 @@ bash scripts/run_hda_experiments.sh
 The script trains uniform, confidence, and learned aggregation with seeds 2026,
 2027, and 2028. Outputs are written to `runs_hda/`.
 
-This extension is tracked separately from the final course report until the
-server experiment completes and the result is reviewed.
+## Observed results
+
+The experiment completed with three seeds per aggregator. Learned weighting
+improved mixed-condition accuracy over uniform averaging in every seed and
+suite:
+
+- seen blur + JPEG: +0.82 points on average;
+- unseen blur + resize: +1.46 points;
+- unseen JPEG + resize: +0.21 points.
+
+Simple confidence weighting remained stronger on clean input (92.74%) and on
+the JPEG-plus-resize suite (91.70%). Learned weighting reduced clean accuracy
+to 91.03%, compared with 92.31% for uniform averaging. The learned scorer gave
+clean frames about 39-40% weight and degraded frames about 10-11%, without
+collapsing to a single frame.
+
+The current evidence supports learned weighting as a mixed-degradation
+aggregation method, not as a universal replacement for confidence weighting.
+Detailed results are in [`results_hda/`](../results_hda/README.md).
