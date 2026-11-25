@@ -109,7 +109,8 @@ without retraining. A validation-only sweep selected Clean 0%, Blur 20%, JPEG
 92.52% JPEG, and 91.45% resize accuracy. It does not beat Blur-only on the
 trained blur or JPEG conditions; the resize gain is only 0.14 points.
 
-The final course report is [`reports/CV_ErrorFlip_GenD_Report.pdf`](reports/CV_ErrorFlip_GenD_Report.pdf).
+The final course report is
+[`reports/CV_ErrorFlip_GenD_Report_20261122.pdf`](reports/CV_ErrorFlip_GenD_Report_20261122.pdf).
 Aggregate tables and figures are under [`results/`](results/).
 
 ## Data
